@@ -1,0 +1,48 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.1'
+        classpath 'com.google.gms:google-services:4.4.4'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:1.9.25"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25"
+            force "org.jetbrains.kotlin:kotlin-stdlib-common:1.9.25"
+            force "androidx.browser:browser:1.9.0"
+        }
+    }
+    // LOG HYGIENE — Suppress `Note: ... uses unchecked/unsafe operations` and
+    // `Note: ... uses or overrides a deprecated API` notes emitted by upstream
+    // Capacitor / Cordova / Razorpay / Capgo plugin sources we don't own.
+    // These are javac INFO notes (not warnings, not errors) — the build
+    // already passes. Hiding them keeps the GitHub Actions log readable so
+    // real failures stand out. `-nowarn` + `-Xlint:none` together silence the
+    // notes without affecting our own app code's compile checks.
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += ['-Xlint:none', '-nowarn']
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
