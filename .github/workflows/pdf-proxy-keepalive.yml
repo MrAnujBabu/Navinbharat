@@ -1,0 +1,39 @@
+name: PDF Proxy Keepalive
+
+# Warms the pdf-proxy edge function every 10 minutes so first-tap
+# Class-Notes opens never pay the ~1.5–3s Deno cold-start. Uses a HEAD
+# against a known-public allow-listed jsDelivr asset (kind=url) so the
+# function executes the full code path without hitting Drive quota.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HEAD pdf-proxy
+        run: |
+          BASE="${{ secrets.SUPABASE_URL }}"
+          ANON="${{ secrets.SUPABASE_ANON_KEY }}"
+          if [ -z "$BASE" ] || [ -z "$ANON" ]; then
+            echo "::warning::Skipping — SUPABASE_URL or SUPABASE_ANON_KEY missing"
+            exit 0
+          fi
+          # Tiny known-good PDF on jsDelivr (allow-listed in pdf-proxy)
+          TARGET="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/web/compressed.tracemonkey-pldi-09.pdf"
+          URL="${BASE%/}/functions/v1/pdf-proxy?kind=url&url=$(printf '%s' "$TARGET" | jq -sRr @uri)"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -I \
+            -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+            --max-time 20 "$URL" || echo "000")
+          echo "pdf-proxy HEAD → $STATUS"
+          # 2xx/3xx = warm; 4xx still means function booted (good enough).
+          if [ "$STATUS" = "000" ]; then
+            echo "::warning::pdf-proxy unreachable"
+            exit 0
+          fi
