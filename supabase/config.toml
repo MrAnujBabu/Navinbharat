@@ -1,0 +1,4 @@
+project_id = "cmbattmjwriiesibayfk"
+
+[functions.resolve-storage-pdf]
+verify_jwt = true
