@@ -1,0 +1,109 @@
+name: Code Guards
+
+# Cheap grep-based ceilings that fail CI when NEW hardcoded colors or raw
+# console.* calls are added above the snapshot budget. Ratchet down by
+# lowering the BUDGET constant in each script after cleanup PRs land.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'bun.lock'
+      - 'bun.lockb'
+      - 'package-lock.json'
+      - 'package.json'
+      - 'scripts/check-design-tokens.mjs'
+      - 'scripts/check-node-pin.mjs'
+      - 'scripts/check-console-usage.mjs'
+
+      - 'scripts/check-lockfile-registry.mjs'
+      - 'scripts/check-deep-links.mjs'
+      - 'scripts/check-social-links.mjs'
+      - 'scripts/gen-assetlinks.mjs'
+      - 'public/.well-known/**'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - '.github/workflows/code-guards.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'bun.lock'
+      - 'bun.lockb'
+      - 'package-lock.json'
+      - 'package.json'
+      - 'scripts/check-design-tokens.mjs'
+      - 'scripts/check-node-pin.mjs'
+      - 'scripts/check-console-usage.mjs'
+
+      - 'scripts/check-lockfile-registry.mjs'
+      - 'scripts/check-deep-links.mjs'
+      - 'scripts/check-social-links.mjs'
+      - 'scripts/gen-assetlinks.mjs'
+      - 'public/.well-known/**'
+      - 'android/app/src/main/AndroidManifest.xml'
+  workflow_dispatch:
+
+concurrency:
+  group: code-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      # Runs before anything expensive: a lockfile pinned to a sandbox-private
+      # registry (Replit / Lovable mirror) makes every downstream CI install
+      # fail with ConnectionRefused / EAI_AGAIN. Catch it at PR time, not at
+      # release-tag time.
+      - name: Lockfile registry guard
+        run: |
+          node scripts/check-lockfile-registry.mjs || {
+            echo "::error::Lockfile pins sandbox-private registry tarballs. Remedy: run 'bun run fix:lockfile' locally and commit bun.lock + package-lock.json." >&2
+            exit 1
+          }
+
+      # Vercel auto-upgrades open-ended engine ranges (">=22") to the next
+      # major Node release. Keep the pin single-major and in sync everywhere.
+      - name: Node version pin guard
+        run: node scripts/check-node-pin.mjs
+
+      - name: Design-token ceiling
+        run: node scripts/check-design-tokens.mjs
+
+
+      - name: Console-usage ceiling
+        run: node scripts/check-console-usage.mjs
+
+      # Social handles drifted once (t.me/naveenbharat vs t.me/Naveenbharat1).
+      # Keep every outbound Telegram URL in src/config/socialLinks.ts.
+      - name: Social-link single source of truth
+        run: node scripts/check-social-links.mjs
+
+      # Deep links fail SILENTLY when assetlinks.json carries a placeholder or
+      # the manifest host list drifts from APP_LINK_HOSTS. This guard is the
+      # only signal we get. See docs/DEEP-LINKS.md.
+      - name: Deep-link guard (assetlinks + host parity)
+        env:
+          ANDROID_CERT_SHA256: ${{ secrets.ANDROID_CERT_SHA256 }}
+          # Explicit opt-in: bare CI no longer implies strict (that broke the
+          # APK build), so this guard asks for strictness on purpose.
+          ASSETLINKS_STRICT: "1"
+        run: |
+          if [ -n "${ANDROID_CERT_SHA256}" ]; then
+            node scripts/gen-assetlinks.mjs
+          else
+            echo "::warning::ANDROID_CERT_SHA256 secret not set — skipping assetlinks generation, fingerprint check will be advisory."
+          fi
+
+          CI=false node scripts/check-deep-links.mjs || {
+            echo "::error::Deep-link config is broken. See docs/DEEP-LINKS.md." >&2
+            exit 1
+          }
