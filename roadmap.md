@@ -1,0 +1,31 @@
+# Roadmap
+
+- [x] Fix offline/My Library PDF reader header: tap + fullscreen must hide the top bar, no leftover white strip
+- [x] Audit follow-ups: single-source surface tap (no double toggle), reader-owned back sentinel, idle-debounced relayout
+- [ ] Connect the user's existing "Naveen Bharat" Supabase project (needs user action in Lovable UI — code + `.env` VITE_SUPABASE_* already point at it after the 2026-09-01 restore)
+- [ ] Optional: add CI pipelines (`.github/workflows`, `maestro/`, `e2e/`) — none exist in this project, so device/E2E verification can't run here
+- [x] Admin "PDF Links" tab (chip filters, bulk paste, per-link probe) + pdf-proxy dynamic allowlist from `trusted_hosts`
+- [x] `/login` redirect destination (now `/dashboard`)
+- [x] Sentry verified (org naveen-bharat, 7 unresolved) → `docs/observer/2026-08-31-sentry-triage.md`
+- [x] Ran the `trusted_hosts` PDF-category migration on the live project (`pdf` enum value + 13 seeded hosts); `pdf-proxy` reads it with a 60s cache
+- [x] Reusable port prompt for the admin PDF allowlist → `docs/porting/PROMPT-admin-pdf-allowlist.md`
+- [ ] Attach the 3 approved PDFs to Amar Batch (needs admin upload UI on the live app)
+- [ ] Sentry noise PR: drop transient network + empty `{}` events; reject non-`%PDF` bytes before offline save
+- [x] Live signed-in verification of the offline reader (header toggle, back contract, zero console errors) → `docs/observer/2026-08-31-final-polish-audit.md`
+- [x] Crash shield: wrap every `DocReaderShell` mount (study materials, lesson attachments) in `ReaderErrorBoundary`
+- [x] Deep PDF delivery perf pass + ELO scoring (962/1000) → `docs/perf/PDF-PERF-2026-09-01.md`
+- [x] Fix unbounded canvas retention on long PDFs (`shouldReleaseDistantPages` page-count rule + test)
+- [ ] Re-measure reader memory on a 300-page scan on a real device after the APK build
+
+- [x] Clear preview typecheck errors (Error `cause` needs ES2022.Error lib — added to tsconfig.app.json)
+- [ ] Fix preview typecheck errors introduced during the lint/typing pass (ContentDrillDown, LibraryManager, PaymentsSection, useLessons)
+- [x] Typecheck errors from the typing pass fixed (build green, 510 tests pass)
+- [x] Lint 279 -> **0 warnings / 0 errors**; typecheck + build green
+- [x] Login bootstrap input-loss bug fixed (`PublicRoute` no longer unmounts public pages while auth loads) + e2e regression test, verified on a production build
+- [x] Route guards are `forwardRef` — no more React ref console error
+- [x] `/login` and `Login.tsx` both redirect to `/dashboard` (matches the copy)
+- [x] Semantic `--video-scrim` / `--overlay` tokens replace `bg-black`/`text-white` in Course + LessonView; token guard ratcheted 172 -> 159
+- [x] APK emulator boot gate (`scripts/check-apk-boot.sh` in `build-apk.yml`)
+- [x] Audit re-scored **5/5** → `docs/observer/2026-09-01-full-audit.md`
+- [ ] Review the `SUPABASE_SERVICE_ROLE_KEY` usage allowlist across `supabase/functions/**` (server-only today, no client exposure)
+- [ ] Push to `github.com/MrAnujBabu/Navinbharat.git` + tag `v*` for the APK release (needs your machine / GitHub sync — no JDK here)

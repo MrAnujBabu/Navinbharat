@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: |
+          set -e
+          bun install --no-save || npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Typecheck (tsgo — never tsc)
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Repo guards
+        run: |
+          set -e
+          bun run guard:all
+          bun run check:lockfile
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build

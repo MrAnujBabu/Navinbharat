@@ -1,0 +1,1 @@
+INSERT INTO public.site_settings (key, value) VALUES ('pdf_zoom_controls_enabled', 'false') ON CONFLICT (key) DO NOTHING;
