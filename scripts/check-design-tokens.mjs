@@ -8,7 +8,8 @@
  * To lower the budget: fix violations, then update BUDGET below.
  * To raise the budget: don't. Ask for review instead.
  */
-import { spawnSync } from "node:child_process";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 // Snapshot 2026-09-01: ratcheted 172 -> 159 after Course.tsx / LessonView.tsx
 // migrated to the semantic --video-scrim / --overlay tokens.
@@ -21,16 +22,31 @@ import { spawnSync } from "node:child_process";
 // src/components/dashboard/HeroCarousel.tsx.
 const BUDGET = 159;
 
-const PATTERN = String.raw`\btext-white\b|\bbg-black\b`;
+const PATTERN = /\btext-white\b|\bbg-black\b/;
 const PATHS = ["src/components", "src/pages"];
 
-const r = spawnSync("rg", ["--no-heading", "-n", PATTERN, ...PATHS], { encoding: "utf8" });
-if (r.status !== 0 && r.status !== 1) {
-  console.error("rg failed:", r.stderr);
-  process.exit(2);
+// Node-native walk: GitHub runners do not ship ripgrep, so shelling out to `rg`
+// fails the guard with exit 2 instead of reporting a real violation count.
+function* walk(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) yield* walk(full);
+    else if (entry.isFile()) yield full;
+  }
 }
-const lines = (r.stdout || "").split("\n").filter(Boolean);
+
+const lines = [];
+for (const root of PATHS) {
+  if (!statSync(root, { throwIfNoEntry: false })) continue;
+  for (const file of walk(root)) {
+    const text = readFileSync(file, "utf8");
+    text.split("\n").forEach((line, i) => {
+      if (PATTERN.test(line)) lines.push(`${file}:${i + 1}:${line}`);
+    });
+  }
+}
 const count = lines.length;
+
 
 if (count > BUDGET) {
   console.error(`❌ design-tokens: ${count} hardcoded color utilities found, budget is ${BUDGET}.`);

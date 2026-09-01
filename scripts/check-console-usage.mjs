@@ -7,32 +7,44 @@
  * Allowlist: files that legitimately host console.* (the wrapper itself,
  * dev-only debug helpers).
  */
-import { spawnSync } from "node:child_process";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 // Snapshot 2026-07-19: 141 raw console.* across src/.
 const BUDGET = 141;
 
-const PATTERN = String.raw`console\.(log|warn|error|info|debug)\s*\(`;
+const PATTERN = /console\.(log|warn|error|info|debug)\s*\(/;
 const ALLOWLIST = [
   "src/lib/log.ts",
   "src/lib/nativeDebug.ts",
   "src/lib/reportError.ts",
 ];
 
-const r = spawnSync(
-  "rg",
-  ["--no-heading", "-n", PATTERN, "src/", "-g", "!**/*.test.*", "-g", "!src/test/**"],
-  { encoding: "utf8" },
-);
-if (r.status !== 0 && r.status !== 1) {
-  console.error("rg failed:", r.stderr);
-  process.exit(2);
+// Node-native walk: GitHub runners do not ship ripgrep, so shelling out to `rg`
+// fails the guard with exit 2 instead of reporting a real violation count.
+function* walk(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (full === "src/test") continue;
+      yield* walk(full);
+    } else if (entry.isFile() && !/\.test\./.test(entry.name)) {
+      yield full;
+    }
+  }
 }
-const lines = (r.stdout || "")
-  .split("\n")
-  .filter(Boolean)
-  .filter((ln) => !ALLOWLIST.some((p) => ln.startsWith(p + ":")));
-const count = lines.length;
+
+const lines = [];
+if (statSync("src", { throwIfNoEntry: false })) {
+  for (const file of walk("src")) {
+    readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+      if (PATTERN.test(line)) lines.push(`${file}:${i + 1}:${line}`);
+    });
+  }
+}
+const filtered = lines.filter((ln) => !ALLOWLIST.some((p) => ln.startsWith(p + ":")));
+const count = filtered.length;
+
 
 if (count > BUDGET) {
   console.error(`❌ console-usage: ${count} raw console.* calls found, budget is ${BUDGET}.`);
