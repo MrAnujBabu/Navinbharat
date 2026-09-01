@@ -1,5 +1,8 @@
 ext {
-    minSdkVersion = 23
+    // 26 (Android 8.0) is the floor required by @capacitor/inappbrowser's
+    // io.ionic.libs:ioninappbrowser-android; 23 fails manifest merging.
+    minSdkVersion = 26
+
     compileSdkVersion = 35
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.2'
