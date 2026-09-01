@@ -22,17 +22,34 @@ adb install -r -g "$APK"
 echo "==> Launching"
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null
 
-# Give the WebView time to load the bundled assets and run Capacitor bridge init.
-sleep 25
+# The GitHub runner emulator can stall for minutes between install and launch, so
+# poll for a live process instead of assuming a fixed cold-start window.
+echo "==> Waiting for the process to come up (up to 120s)"
+PID=""
+for i in $(seq 1 40); do
+  PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
+  if [ -n "$PID" ]; then break; fi
+  # A hard crash shows up in logcat immediately — fail fast instead of waiting.
+  if adb logcat -d -v brief | grep -Eq "FATAL EXCEPTION|ANR in $PKG"; then break; fi
+  sleep 3
+done
 
-echo "==> Checking process is alive"
-PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
 if [ -z "$PID" ]; then
-  echo "::error::$PKG is not running 25s after launch — it crashed on boot."
-  adb logcat -d -v brief | tail -n 200
+  echo "::error::$PKG never came up — it crashed on boot or failed to launch."
+  adb logcat -d -v brief | grep -Ei "$PKG|FATAL EXCEPTION|AndroidRuntime|Capacitor" | tail -n 120
   exit 1
 fi
 echo "Alive as pid $PID"
+
+# Let the WebView finish loading the bundled assets and the Capacitor bridge,
+# then confirm the process survived that window (catches delayed JS crashes).
+sleep 20
+PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
+if [ -z "$PID" ]; then
+  echo "::error::$PKG died while loading the web assets."
+  adb logcat -d -v brief | grep -Ei "$PKG|FATAL EXCEPTION|AndroidRuntime|Capacitor|net::ERR_" | tail -n 120
+  exit 1
+fi
 
 echo "==> Scanning logcat for fatals"
 LOG="$(adb logcat -d -v brief)"
