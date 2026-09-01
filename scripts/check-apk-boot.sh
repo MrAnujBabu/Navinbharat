@@ -30,7 +30,9 @@ for i in $(seq 1 40); do
   PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
   if [ -n "$PID" ]; then break; fi
   # A hard crash shows up in logcat immediately — fail fast instead of waiting.
-  if adb logcat -d -v brief | grep -Eq "FATAL EXCEPTION|ANR in $PKG"; then break; fi
+  # Scope this to OUR package: the emulator's shared logcat routinely contains
+  # fatals from unrelated system apps, which would abort the poll on iteration 1.
+  if adb logcat -d -v brief | grep -E -A 4 "FATAL EXCEPTION|ANR in " | grep -q "$PKG"; then break; fi
   sleep 3
 done
 
@@ -53,7 +55,7 @@ fi
 
 echo "==> Scanning logcat for fatals"
 LOG="$(adb logcat -d -v brief)"
-if printf '%s' "$LOG" | grep -Eq "FATAL EXCEPTION|ANR in $PKG|E AndroidRuntime"; then
+if printf '%s' "$LOG" | grep -E -A 4 "FATAL EXCEPTION|ANR in |E AndroidRuntime" | grep -q "$PKG"; then
   echo "::error::fatal exception during boot"
   printf '%s' "$LOG" | grep -E -A 30 "FATAL EXCEPTION|E AndroidRuntime" | head -n 120
   exit 1
