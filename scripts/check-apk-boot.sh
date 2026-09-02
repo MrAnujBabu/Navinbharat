@@ -5,7 +5,11 @@
 # the device is booted).
 set -euo pipefail
 
-APK="android/app/build/outputs/apk/debug/app-debug.apk"
+OUT="android/app/build/outputs/apk/debug"
+# CI renames the Gradle output to the product name; a plain local
+# `./gradlew assembleDebug` still leaves app-debug.apk. Accept either.
+APK="$OUT/Naveen-Bharat.apk"
+[ -f "$APK" ] || APK="$OUT/app-debug.apk"
 PKG="$(grep -m1 'applicationId' android/app/build.gradle | sed -E 's/.*"(.*)".*/\1/')"
 : "${PKG:?could not read applicationId from android/app/build.gradle}"
 
