@@ -28,6 +28,7 @@ import { PriorityBadgeChip } from "../components/library/PriorityBadge";
 import { priorityKeyForDownload, getPriority, priorityRank } from "../lib/itemPriority";
 import CrashShield from "../components/system/CrashShield";
 import { addBreadcrumb } from "../lib/sentry";
+import { tapHaptic, selectionHaptic } from "../lib/native/haptics";
 
 /** Yield to the event loop so long bulk loops never block input (ANR guard). */
 const yieldToUi = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -155,6 +156,7 @@ const Downloads = () => {
 
   const handleDelete = async (id: number | undefined, title: string) => {
     if (id === undefined) return;
+    void tapHaptic("medium");
     await deleteDownload(id);
     toast.success(`"${title}" removed from downloads`);
   };
@@ -162,6 +164,7 @@ const Downloads = () => {
   // ---- Bulk operations ----
   const toggleSelect = (id: number | undefined) => {
     if (id === undefined) return;
+    void selectionHaptic();
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -418,11 +421,11 @@ const Downloads = () => {
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
         <Tabs defaultValue="course" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="course" className="text-xs">From Courses</TabsTrigger>
-            <TabsTrigger value="mine" className="text-xs">My Library</TabsTrigger>
+            <TabsTrigger value="course" className="text-xs transition-transform duration-150 ease-out active:scale-[0.97]" onClick={() => { void selectionHaptic(); }}>From Courses</TabsTrigger>
+            <TabsTrigger value="mine" className="text-xs transition-transform duration-150 ease-out active:scale-[0.97]" onClick={() => { void selectionHaptic(); }}>My Library</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="course" className="mt-4 space-y-5">
+          <TabsContent value="course" className="mt-4 space-y-5 animate-in fade-in duration-200">
             <p className="text-[11px] text-muted-foreground -mt-2 px-1">
               Files you saved from your courses (PDFs, Notes, DPPs). Available offline, even without internet.
             </p>
@@ -442,7 +445,7 @@ const Downloads = () => {
                   variant={selectMode ? "default" : "outline"}
                   size="sm"
                   className="h-9 shrink-0"
-                  onClick={() => (selectMode ? exitSelection() : setSelectMode(true))}
+                  onClick={() => { void selectionHaptic(); return selectMode ? exitSelection() : setSelectMode(true); }}
                   aria-pressed={selectMode}
                 >
                   <CheckSquare className="h-3.5 w-3.5 mr-1" />
@@ -517,7 +520,7 @@ const Downloads = () => {
                     key={item.id}
                     className={`flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-accent/5 transition-colors group ${
                       isChecked ? "border-primary/60 bg-primary/5" : "border-border"
-                    } ${selectMode ? "cursor-pointer select-none" : ""}`}
+                    } ${selectMode ? "cursor-pointer select-none active:bg-muted/60 active:scale-[0.99] transition-all duration-150 ease-out" : ""}`}
                     onClick={rowClick}
                     onContextMenu={(e) => {
                       if (selectMode) return;
@@ -562,16 +565,16 @@ const Downloads = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 px-2 text-primary hover:bg-primary/10 text-xs"
-                          onClick={() => handleOpen(item)}
+                          className="h-8 px-2 text-primary hover:bg-primary/10 text-xs transition-transform duration-150 ease-out active:scale-[0.97]"
+                          onClick={() => { void tapHaptic("light"); handleOpen(item); }}
                         >
                           Open
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-primary hover:bg-primary/10"
-                          onClick={() => handleAddToLibrary(item)}
+                          className="h-8 w-8 text-primary hover:bg-primary/10 transition-transform duration-150 ease-out active:scale-[0.97]"
+                          onClick={() => { void tapHaptic("light"); handleAddToLibrary(item); }}
                           disabled={addingId === item.id}
                           aria-label="Add to My Library"
                           title="Add to My Library"
@@ -581,8 +584,8 @@ const Downloads = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-primary hover:bg-primary/10"
-                          onClick={() => handleExport(item)}
+                          className="h-8 w-8 text-primary hover:bg-primary/10 transition-transform duration-150 ease-out active:scale-[0.97]"
+                          onClick={() => { void tapHaptic("light"); handleExport(item); }}
                           disabled={exportingId === item.id || !item.local_path}
                           aria-label="Save to internal storage"
                           title={item.local_path ? "Save to phone storage (Downloads / Files)" : "Re-download first to enable saving"}
@@ -595,7 +598,7 @@ const Downloads = () => {
                               variant="ghost"
                               size="icon"
                               aria-label="Delete download"
-                              className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-transform duration-150 ease-out active:scale-[0.96]"
                             >
 
                               <Trash2 className="h-4 w-4" />
@@ -628,7 +631,7 @@ const Downloads = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="mine" className="mt-4">
+          <TabsContent value="mine" className="mt-4 animate-in fade-in duration-200">
             <MyLibrary />
           </TabsContent>
         </Tabs>
