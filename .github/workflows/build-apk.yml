@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -54,7 +54,7 @@ jobs:
           echo "Resolved versionName=$SAFE versionCode=${GITHUB_RUN_NUMBER}"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
 
@@ -79,7 +79,7 @@ jobs:
         run: bun run build
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -96,8 +96,11 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      # Syncs through scripts/cap-sync.mjs, which also strips the hidden source
+      # maps out of the packaged assets — bare `cap sync` copies 31 MB of .map
+      # files into the APK (that is what made v1.0.5 50 MB instead of ~20 MB).
       - name: Capacitor sync (dist -> android)
-        run: npx cap sync android
+        run: bun run cap:sync android
 
       - name: Assemble debug APK
         run: |
@@ -116,7 +119,25 @@ jobs:
           PLUGINS=android/app/src/main/assets/capacitor.plugins.json
           test -f "$PLUGINS" || { echo "::error::capacitor.plugins.json missing — re-run cap sync"; exit 1; }
           COUNT=$(grep -c '"pkg"' "$PLUGINS" || true)
-          echo "APK $(du -h "$APK" | cut -f1) with $COUNT Capacitor plugins bundled."
+
+          # Source maps must never ship to devices: ~31 MB of dead weight plus
+          # the full readable source. scripts/cap-sync.mjs strips them; this
+          # asserts the strip actually happened inside the packaged APK.
+          if unzip -l "$APK" | grep -q "assets/public/.*\.map"; then
+            echo "::error::source maps found inside the APK — run bun run cap:sync, not bare cap sync"
+            unzip -l "$APK" | grep "assets/public/.*\.map" | head -n 10
+            exit 1
+          fi
+
+          # Size ceiling: catches a bundle regression (or maps creeping back in)
+          # before it ships. v1.0.5 was 50.2 MB with maps, ~20 MB without.
+          SIZE=$(stat -c%s "$APK")
+          MAX=$((28 * 1024 * 1024))
+          if [ "$SIZE" -gt "$MAX" ]; then
+            echo "::error::APK is $((SIZE / 1024 / 1024)) MB, over the 28 MB ceiling."
+            exit 1
+          fi
+          echo "APK $(du -h "$APK" | cut -f1) with $COUNT Capacitor plugins bundled, no source maps."
 
       # Boots the built APK on a real emulator: catches runtime crashes that a
       # file-existence smoke check cannot (missing plugin classes, bad WebView
@@ -135,11 +156,11 @@ jobs:
           script: bash scripts/check-apk-boot.sh
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: naveen-bharat-apk-${{ env.APP_VERSION_NAME }}-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: error
 
       - name: Sentry release smoke test

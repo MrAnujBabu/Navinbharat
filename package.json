@@ -22,7 +22,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "start": "NODE_ENV=production node server/index.js",
-    "cap:sync": "npx cap sync",
+    "cap:sync": "node scripts/cap-sync.mjs",
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
     "guard:tokens": "node scripts/check-design-tokens.mjs",
