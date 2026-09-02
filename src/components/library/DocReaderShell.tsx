@@ -535,25 +535,25 @@ export default function DocReaderShell({
       <div
         aria-hidden="true"
         data-testid="reader-notch-band"
-        className="pointer-events-none fixed inset-x-0 top-0 z-[75] bg-black"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
         style={{ height: "env(safe-area-inset-top, 0px)" }}
       />
       <div
         aria-hidden="true"
         data-testid="reader-notch-band-bottom"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] bg-black"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
         style={{ height: "env(safe-area-inset-bottom, 0px)" }}
       />
       <div
         aria-hidden="true"
         data-testid="reader-notch-band-left"
-        className="pointer-events-none fixed inset-y-0 left-0 z-[75] bg-black"
+        className="pointer-events-none fixed inset-y-0 left-0 z-[75] nb-safe-band"
         style={{ width: "env(safe-area-inset-left, 0px)" }}
       />
       <div
         aria-hidden="true"
         data-testid="reader-notch-band-right"
-        className="pointer-events-none fixed inset-y-0 right-0 z-[75] bg-black"
+        className="pointer-events-none fixed inset-y-0 right-0 z-[75] nb-safe-band"
         style={{ width: "env(safe-area-inset-right, 0px)" }}
       />
       {/* Center column — this is also the pseudo-landscape rotation frame, so
