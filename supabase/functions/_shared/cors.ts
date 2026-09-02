@@ -63,20 +63,26 @@ function isAutoAllowed(origin: string): boolean {
 
 export function buildCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? "";
-  let allowOrigin: string;
-
-  if (origin && (isAutoAllowed(origin) || ALLOWED.includes(origin))) {
-    allowOrigin = origin;
-  } else if (ALLOWED.length > 0) {
-    allowOrigin = ALLOWED[0];
-  } else {
-    allowOrigin = "*";
-  }
-
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
+  // Deny by default. Never fall back to "*" and never echo a mismatched
+  // allow-origin: an unmatched browser origin gets no Access-Control-Allow-Origin
+  // header at all, so the browser blocks the response. Guessing ALLOWED[0] or "*"
+  // let any third-party page read the anonymous endpoints (notion-page,
+  // content-redirect) and amplified hotlink / cost-abuse.
+  const base: Record<string, string> = {
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Vary": "Origin",
   };
+
+  if (origin && (isAutoAllowed(origin) || ALLOWED.includes(origin))) {
+    return { ...base, "Access-Control-Allow-Origin": origin };
+  }
+
+  // Non-browser callers (curl, native fetch, webhooks) send no Origin and are
+  // unaffected by CORS - keep them working.
+  if (!origin) {
+    return { ...base, "Access-Control-Allow-Origin": ALLOWED[0] ?? "null" };
+  }
+
+  return base;
 }
