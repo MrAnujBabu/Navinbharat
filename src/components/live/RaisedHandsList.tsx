@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../integrations/supabase/client";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -21,6 +21,9 @@ interface RaisedHandsListProps {
 
 const RaisedHandsList = ({ sessionId }: RaisedHandsListProps) => {
   const [participants, setParticipants] = useState<Participant[]>([]);
+  // Realtime callbacks can fire a refetch that lands after unmount (leaving the
+  // live class), and removeChannel does not cancel an in-flight query.
+  const mountedRef = useRef(true);
 
   const fetchParticipants = useCallback(async () => {
     const { data } = await supabase
@@ -28,10 +31,12 @@ const RaisedHandsList = ({ sessionId }: RaisedHandsListProps) => {
       .select("*")
       .eq("session_id", sessionId)
       .order("joined_at", { ascending: true });
+    if (!mountedRef.current) return;
     if (data) setParticipants(data as Participant[]);
   }, [sessionId]);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchParticipants();
 
     const channel = supabase
@@ -48,7 +53,10 @@ const RaisedHandsList = ({ sessionId }: RaisedHandsListProps) => {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      mountedRef.current = false;
+      supabase.removeChannel(channel);
+    };
   }, [sessionId, fetchParticipants]);
 
   const dismissHand = async (participantId: string, userName: string) => {
