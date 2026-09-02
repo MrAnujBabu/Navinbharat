@@ -84,6 +84,41 @@ fi
 echo "✅ APK boots cleanly on the emulator."
 
 # ---------------------------------------------------------------------------
+# Rotation smoke: the landscape white strips were a native window-inset bug, so
+# rotate the emulator with the app in the foreground and make sure it survives
+# the configuration change (MainActivity.onConfigurationChanged now re-asserts
+# immersive mode there). Screenshots are uploaded as build artifacts for a
+# visual check of the reader chrome.
+# ---------------------------------------------------------------------------
+SHOTS="${SHOT_DIR:-/tmp/apk-shots}"
+mkdir -p "$SHOTS"
+adb shell content insert --uri content://settings/system --bind name:s:accelerometer_rotation --bind value:i:0 >/dev/null 2>&1 || true
+capture() {
+  adb shell screencap -p /sdcard/nb-shot.png >/dev/null 2>&1 || return 0
+  adb pull /sdcard/nb-shot.png "$SHOTS/$1.png" >/dev/null 2>&1 || true
+}
+capture portrait
+echo "==> Rotating to landscape"
+adb shell content insert --uri content://settings/system --bind name:s:user_rotation --bind value:i:1 >/dev/null 2>&1 || true
+sleep 8
+PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
+if [ -z "$PID" ]; then
+  echo "::error::$PKG died on rotation to landscape."
+  adb logcat -d -v brief | grep -Ei "$PKG|FATAL EXCEPTION|AndroidRuntime" | tail -n 80
+  exit 1
+fi
+capture landscape
+echo "==> Rotating back to portrait"
+adb shell content insert --uri content://settings/system --bind name:s:user_rotation --bind value:i:0 >/dev/null 2>&1 || true
+sleep 5
+PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
+if [ -z "$PID" ]; then
+  echo "::error::$PKG died rotating back to portrait."
+  exit 1
+fi
+echo "✅ Survives rotation in both directions (screenshots in $SHOTS)."
+
+# ---------------------------------------------------------------------------
 # App Links only verify when assetlinks.json carries the SHA-256 of the cert
 # the installed APK is actually signed with. A rebuilt debug keystore silently
 # breaks every https:// deep link, so assert the match here.
