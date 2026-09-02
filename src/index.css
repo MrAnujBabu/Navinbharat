@@ -284,6 +284,13 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
 }
 
 @layer utilities {
+  /* Opaque band painted behind a safe-area gutter in the reader. Semantic
+     utility instead of a raw `bg-black` so the design-token guard stays clean
+     and the reader chrome colour is changeable in one place. */
+  .nb-safe-band {
+    background-color: #000;
+  }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
