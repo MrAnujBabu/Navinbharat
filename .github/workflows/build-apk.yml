@@ -1,6 +1,6 @@
 name: Naveen Bharat APK
 
-# Debug APK build + GitHub Release.
+# Release-signed APK build + GitHub Release.
 #   - push of a `v*` tag  -> builds and attaches the APK to a Release
 #   - workflow_dispatch    -> builds an artifact only
 #
@@ -104,28 +104,78 @@ jobs:
       - name: Capacitor sync (dist -> android)
         run: bun run cap:sync android
 
-      - name: Assemble debug APK
+      # The production keystore lives only in repo secrets. It is decoded to a path
+      # outside the repo tree so it can never be committed or packaged, and the
+      # file is removed again once the APK is signed.
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -e
+          test -n "$KEYSTORE_BASE64" || { echo "::error::KEYSTORE_BASE64 secret is empty — cannot produce a release-signed APK"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/signing/release.keystore"
+          test -s "$RUNNER_TEMP/signing/release.keystore" || { echo "::error::decoded keystore is empty — KEYSTORE_BASE64 is not valid base64"; exit 1; }
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/signing/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Assemble release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -e
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon --parallel --build-cache
+          ./gradlew assembleRelease --no-daemon --parallel --build-cache
 
-      # Gradle always emits `app-debug.apk`. Users download this straight from
-      # the Release page, so rename it to the product name before anything else
+      # Gradle emits `app-release.apk`. Users download this straight from the
+      # Release page, so rename it to the product name before anything else
       # references it. Renaming here (not via archivesBaseName) keeps the Gradle
-      # config and the debug-signing path completely untouched.
+      # config untouched.
       - name: Name the APK "Naveen Bharat"
         run: |
           set -e
-          OUT=android/app/build/outputs/apk/debug
-          mv "$OUT/app-debug.apk" "$OUT/Naveen-Bharat.apk"
+          OUT=android/app/build/outputs/apk/release
+          mv "$OUT/app-release.apk" "$OUT/Naveen-Bharat.apk"
           ls -lh "$OUT/Naveen-Bharat.apk"
+
+      # A release build that silently fell back to the debug key would install
+      # fine and break every https:// App Link. Assert the certificate before
+      # anything is published.
+      - name: Verify release signature
+        env:
+          EXPECTED_SHA256: ${{ secrets.ANDROID_CERT_SHA256 }}
+        run: |
+          set -e
+          APK=android/app/build/outputs/apk/release/Naveen-Bharat.apk
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER="$(ls "$SDK_ROOT"/build-tools/*/apksigner 2>/dev/null | tail -n 1)"
+          test -n "$APKSIGNER" || { echo "::error::apksigner not found in the Android SDK"; exit 1; }
+          "$APKSIGNER" verify --print-certs "$APK"
+          FP="$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 -i 'SHA-256 digest' | sed -E 's/.*: *//' | tr -d ' \r' | tr 'a-f' 'A-F' | sed -E 's/(..)/\1:/g; s/:$//')"
+          echo "Release certificate SHA-256: $FP"
+          if [ "$FP" = "96:32:FF:20:C8:AD:43:B9:16:26:9C:C7:89:C5:84:BD:CD:AB:7B:01:31:51:88:A4:13:86:D0:D6:5E:FA:1B:1F" ]; then
+            echo "::error::APK is signed with the committed DEBUG key — release signing did not take effect"
+            exit 1
+          fi
+          if [ -n "$EXPECTED_SHA256" ]; then
+            NORM="$(printf '%s' "$EXPECTED_SHA256" | tr -d ' \r' | tr 'a-f' 'A-F')"
+            case "$NORM" in *:*) ;; *) NORM="$(printf '%s' "$NORM" | sed -E 's/(..)/\1:/g; s/:$//')" ;; esac
+            if [ "$FP" != "$NORM" ]; then
+              echo "::error::release certificate $FP does not match the ANDROID_CERT_SHA256 secret ($NORM)"
+              exit 1
+            fi
+            echo "Certificate matches ANDROID_CERT_SHA256."
+          else
+            echo "::warning::ANDROID_CERT_SHA256 is not set — skipped the pinned-certificate comparison."
+          fi
+          rm -f "$KEYSTORE_PATH"
 
       - name: APK smoke check
         run: |
           set -e
-          APK=android/app/build/outputs/apk/debug/Naveen-Bharat.apk
+          APK=android/app/build/outputs/apk/release/Naveen-Bharat.apk
           test -f "$APK" || { echo "::error::APK not found at $APK"; exit 1; }
           grep -q "MainActivity" android/app/src/main/AndroidManifest.xml \
             || { echo "::error::MainActivity missing from AndroidManifest"; exit 1; }
@@ -227,7 +277,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: naveen-bharat-apk-${{ env.APP_VERSION_NAME }}-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/Naveen-Bharat.apk
+          path: android/app/build/outputs/apk/release/Naveen-Bharat.apk
           retention-days: 1  # repository maximum
           if-no-files-found: error
 
@@ -244,5 +294,5 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: Naveen Bharat ${{ github.ref_name }}
-          files: android/app/build/outputs/apk/debug/Naveen-Bharat.apk
+          files: android/app/build/outputs/apk/release/Naveen-Bharat.apk
           generate_release_notes: true
