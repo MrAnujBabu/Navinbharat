@@ -27,7 +27,7 @@ import { addUrlToDefaultLibrary } from "../../services/personalLibrary";
 import { lockOrientation, unlockOrientation, shouldCssRotate, isViewportLandscape } from "../../lib/screenOrientation";
 import { tapHaptic, selectionHaptic } from "../../lib/native/haptics";
 import { hideStatusBar, showStatusBar, setStatusBarOverlay, setStatusBarBackground, applyStatusBarForTheme } from "../../lib/nativeChrome";
-import { acquireReaderImmersive, enterImmersive } from "../../lib/androidImmersive";
+import { acquireReaderImmersive, enterImmersive, publishNativeBarVars } from "../../lib/androidImmersive";
 import { useReaderFullscreen } from "../../hooks/useReaderFullscreen";
 import { ROTATION_FRAME_ATTR, rotationFrameStyle, notifyPortalHostChanged } from "../../lib/rotationFrame";
 import usePortalHost from "../../hooks/usePortalHost";
@@ -87,9 +87,12 @@ export default function DocReaderShell({
     const sync = () => setViewportHeight(window.innerHeight);
     window.addEventListener("resize", sync);
     window.addEventListener("orientationchange", sync);
+    const mq = window.matchMedia?.("(orientation: landscape)");
+    mq?.addEventListener?.("change", sync);
     return () => {
       window.removeEventListener("resize", sync);
       window.removeEventListener("orientationchange", sync);
+      mq?.removeEventListener?.("change", sync);
     };
   }, []);
   const sheetMetrics = notesSheetMetrics(viewportHeight, keyboardInset);
@@ -101,13 +104,22 @@ export default function DocReaderShell({
     typeof window === "undefined" ? false : window.innerWidth > window.innerHeight,
   );
   useEffect(() => {
-    const sync = () => setViewportLandscape(window.innerWidth > window.innerHeight);
+    // matchMedia is updated by Android before the resize/orientationchange
+    // events settle, so the page chip disappears on the first landscape frame
+    // instead of one debounce later.
+    const sync = () =>
+      setViewportLandscape(
+        window.matchMedia?.("(orientation: landscape)")?.matches ?? window.innerWidth > window.innerHeight,
+      );
     sync();
     window.addEventListener("resize", sync);
     window.addEventListener("orientationchange", sync);
+    const mq = window.matchMedia?.("(orientation: landscape)");
+    mq?.addEventListener?.("change", sync);
     return () => {
       window.removeEventListener("resize", sync);
       window.removeEventListener("orientationchange", sync);
+      mq?.removeEventListener?.("change", sync);
     };
   }, []);
   const landscapeActive = pseudoLandscape || viewportLandscape || landscape;
@@ -194,9 +206,16 @@ export default function DocReaderShell({
     let t: number | null = null;
     const reapply = () => {
       if (t) window.clearTimeout(t);
+      // Re-assert synchronously first — the debounced pass alone left the
+      // system bar (and its light band) visible for the whole rotation
+      // animation. MainActivity.onConfigurationChanged covers the native
+      // side; this keeps the CSS bands sized correctly in the same frame.
+      enterImmersive();
+      publishNativeBarVars();
       t = window.setTimeout(() => {
         void hideStatusBar();
         enterImmersive();
+        publishNativeBarVars();
       }, 120);
     };
     const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
@@ -536,13 +555,13 @@ export default function DocReaderShell({
         aria-hidden="true"
         data-testid="reader-notch-band"
         className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
-        style={{ height: "env(safe-area-inset-top, 0px)" }}
+        style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
       />
       <div
         aria-hidden="true"
         data-testid="reader-notch-band-bottom"
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
-        style={{ height: "env(safe-area-inset-bottom, 0px)" }}
+        style={{ height: "max(env(safe-area-inset-bottom, 0px), var(--nb-sysbar-bottom, 0px))" }}
       />
       <div
         aria-hidden="true"
