@@ -27,13 +27,14 @@ export const useHeroBanners = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("hero_banners")
-        .select("*")
+        .select("id,title,subtitle,description,image_url,bg_color,badge_text,cta_text,cta_link,position,is_active,created_at,updated_at")
         .eq("is_active", true)
         .order("position", { ascending: true });
       if (error) throw error;
       return (data as unknown as HeroBanner[]) || [];
     },
-    staleTime: 1000 * 60 * 5, // 5 min cache
+    // Catalog content: changes rarely, so keep it out of the exam-week request storm.
+    staleTime: 1000 * 60 * 30,
   });
 };
 

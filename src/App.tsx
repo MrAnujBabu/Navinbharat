@@ -154,6 +154,29 @@ const BackButtonHandler = () => {
 // Also installs the offline mutation queue runner so writes queued while
 // offline drain automatically on the next `online` event (was never wired
 // before — queue filled but never auto-drained).
+/** Query-key roots that genuinely change while the app is backgrounded:
+ *  the signed-in user's own state and anything progress/purchase related.
+ *  Catalog-ish keys (hero_banners, landing_courses, landing_testimonials,
+ *  site_settings, subscription-plans, app_config, platform_stats) are
+ *  deliberately absent — they have their own staleTime and refetching them on
+ *  every resume is pure waste. */
+const RESUME_STALE_KEYS = new Set([
+  "profile",
+  "course",
+  "course-bundle",
+  "course-lessons",
+  "course-lesson-stats",
+  "courses-catalog",
+  "my-course-detail",
+  "user-subscription",
+  "notification-bell",
+  "student-notes",
+  "study-materials",
+]);
+/** A quick background/foreground bounce must be a no-op. */
+const RESUME_INVALIDATE_MIN_MS = 60_000;
+let lastResumeInvalidateAt = 0;
+
 const QueryCacheBoot = () => {
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -165,10 +188,21 @@ const QueryCacheBoot = () => {
         stopMQ = m.installMutationQueueRunner();
       }).catch(() => { /* offline queue is best-effort */ });
     });
-    // When useResumeRecovery fires `app:resumed`, invalidate all queries so
-    // every visible screen refetches fresh data after returning from another
-    // app. Prevents the "UI looks alive but data is frozen" symptom.
-    const onResumed = () => { void queryClient.invalidateQueries(); };
+    // When useResumeRecovery fires `app:resumed`, refresh the data that can
+    // actually go stale while the app was backgrounded. A keyless
+    // `invalidateQueries()` here refetched the ENTIRE cache — including the
+    // near-static landing/catalog content — on every foreground bounce, which
+    // is a request storm on exam-week traffic. Scope it, throttle it, and only
+    // refetch queries that are currently mounted.
+    const onResumed = () => {
+      const now = Date.now();
+      if (now - lastResumeInvalidateAt < RESUME_INVALIDATE_MIN_MS) return;
+      lastResumeInvalidateAt = now;
+      void queryClient.invalidateQueries({
+        refetchType: "active",
+        predicate: (query) => RESUME_STALE_KEYS.has(String(query.queryKey?.[0] ?? "")),
+      });
+    };
     window.addEventListener("app:resumed", onResumed);
     return () => {
       stop?.();

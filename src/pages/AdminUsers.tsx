@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import Header from "../components/Layout/Header";
@@ -89,6 +90,18 @@ const AdminUsers = () => {
     fetchAll();
   };
 
+  // The admin roster fetches up to 500 profiles. Rendering all of them as DOM
+  // rows made every keystroke in the search box re-layout the whole list; on a
+  // mid-range Android WebView that is multi-hundred-ms of jank. Only the rows
+  // in (and just around) the viewport are mounted now.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 76,
+    overscan: 8,
+  });
+
   if (authLoading) return null;
 
   return (
@@ -115,32 +128,46 @@ const AdminUsers = () => {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{filtered.length} users</CardTitle></CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {filtered.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 active:scale-[0.99] transition-all">
-                    <button
-                      onClick={() => navigate(`/admin/users/${r.id}`)}
-                      className="flex-1 min-w-0 text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{r.full_name || "Unnamed"}</p>
-                        {r.is_blocked && <Badge variant="destructive" className="text-[10px]">BLOCKED</Badge>}
-                        <Badge variant="secondary" className="text-[10px]">{r.batch_count} batches</Badge>
+              <div ref={listRef} className="max-h-[70dvh] overflow-y-auto overscroll-contain">
+                <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
+                  {rowVirtualizer.getVirtualItems().map((vi) => {
+                    const r = filtered[vi.index];
+                    if (!r) return null;
+                    return (
+                      <div
+                        key={r.id}
+                        ref={rowVirtualizer.measureElement}
+                        data-index={vi.index}
+                        className="absolute left-0 top-0 w-full border-b border-border"
+                        style={{ transform: `translateY(${vi.start}px)` }}
+                      >
+                        <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 active:scale-[0.99] transition-all">
+                          <button
+                            onClick={() => navigate(`/admin/users/${r.id}`)}
+                            className="flex-1 min-w-0 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{r.full_name || "Unnamed"}</p>
+                              {r.is_blocked && <Badge variant="destructive" className="text-[10px]">BLOCKED</Badge>}
+                              <Badge variant="secondary" className="text-[10px]">{r.batch_count} batches</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{r.email || r.mobile || r.id.slice(0, 8)}</p>
+                            {r.created_at && <p className="text-[10px] text-muted-foreground">joined {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</p>}
+                          </button>
+                          <Button
+                            variant={r.is_blocked ? "outline" : "destructive"}
+                            size="sm"
+                            onClick={() => { setTarget(r); setReason(r.blocked_reason ?? ""); }}
+                            className="gap-1 min-h-[44px]"
+                          >
+                            {r.is_blocked ? <><ShieldCheck className="h-4 w-4" /> Unblock</> : <><ShieldOff className="h-4 w-4" /> Block</>}
+                          </Button>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{r.email || r.mobile || r.id.slice(0, 8)}</p>
-                      {r.created_at && <p className="text-[10px] text-muted-foreground">joined {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</p>}
-                    </button>
-                    <Button
-                      variant={r.is_blocked ? "outline" : "destructive"}
-                      size="sm"
-                      onClick={() => { setTarget(r); setReason(r.blocked_reason ?? ""); }}
-                      className="gap-1 min-h-[44px]"
-                    >
-                      {r.is_blocked ? <><ShieldCheck className="h-4 w-4" /> Unblock</> : <><ShieldOff className="h-4 w-4" /> Block</>}
-                    </Button>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
                 {!loading && filtered.length === 0 && (
                   <div className="py-10 text-center text-muted-foreground">No users found.</div>
                 )}

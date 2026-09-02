@@ -144,18 +144,7 @@ const UnifiedVideoPlayer = ({
   // play/pause/seek/volume + accessible focus + keyboard nav). We add the
   // NB BrandingOverlay so chrome looks consistent with the iframe paths.
   if (platform === "direct") {
-    return (
-      <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden">
-        <video
-          src={url} controls controlsList="nodownload" className="w-full h-full"
-          preload="metadata" playsInline
-          onContextMenu={(e) => e.preventDefault()} onEnded={onEnded} onCanPlay={() => onReady?.()}
-        >
-          Your browser does not support video.
-        </video>
-        <BrandingOverlay />
-      </div>
-    );
+    return <DirectVideo url={url} onEnded={onEnded} onReady={onReady} />;
   }
 
 
@@ -167,6 +156,43 @@ const UnifiedVideoPlayer = ({
   return (
     <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden flex items-center justify-center">
       <p className="text-white/50">Unsupported format</p>
+    </div>
+  );
+};
+
+/**
+ * Direct `<video>` playback with explicit unmount teardown.
+ *
+ * Without this, leaving a lesson while an MP4 is buffered left the decoder and
+ * its buffered frames attached until GC — tens of MB on a 2 GB Android
+ * WebView, and the classic OOM path on route churn. Pausing, detaching `src`
+ * and calling `load()` releases them immediately. Same intent as the
+ * `src = "about:blank"` teardown already used by the iframe players.
+ */
+const DirectVideo = ({ url, onEnded, onReady }: { url: string; onEnded?: () => void; onReady?: () => void }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    return () => {
+      if (!el) return;
+      try {
+        el.pause();
+        el.removeAttribute("src");
+        el.load();
+      } catch { /* teardown is best-effort */ }
+    };
+  }, []);
+  return (
+    <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden">
+      <video
+        ref={videoRef}
+        src={url} controls controlsList="nodownload" className="w-full h-full"
+        preload="metadata" playsInline
+        onContextMenu={(e) => e.preventDefault()} onEnded={onEnded} onCanPlay={() => onReady?.()}
+      >
+        Your browser does not support video.
+      </video>
+      <BrandingOverlay />
     </div>
   );
 };

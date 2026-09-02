@@ -38,7 +38,7 @@ export const useLandingCourses = () =>
       if (error) throw error;
       return (data as unknown as LandingCourse[]) || [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 30,
   });
 
 export const useAllLandingCourses = () =>

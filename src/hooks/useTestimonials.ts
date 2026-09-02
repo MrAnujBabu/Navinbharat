@@ -23,7 +23,7 @@ export const useTestimonials = (examTrack?: string) =>
     queryFn: async () => {
       let q = supabase
         .from("landing_testimonials")
-        .select("*")
+        .select("id,student_name,exam_track,quote,avatar_url,rating,position,is_active,created_at,updated_at")
         .eq("is_active", true)
         .order("position", { ascending: true });
       if (examTrack) q = q.eq("exam_track", examTrack);
@@ -31,7 +31,7 @@ export const useTestimonials = (examTrack?: string) =>
       if (error) throw error;
       return (data as unknown as Testimonial[]) || [];
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 30,
   });
 
 export const useAllTestimonials = () =>
