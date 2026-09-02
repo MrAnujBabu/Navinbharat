@@ -816,7 +816,7 @@ const MyCourseDetail = () => {
 
       {/* Mobile course sidebar backdrop */}
       {courseSidebarOpen && (
-        <div aria-hidden="true" className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setCourseSidebarOpen(false)} />
+        <div aria-hidden="true" className="fixed inset-0 z-40 bg-overlay/40 md:hidden" onClick={() => setCourseSidebarOpen(false)} />
       )}
 
       <div className="flex flex-1 overflow-hidden">

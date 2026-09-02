@@ -77,7 +77,7 @@ const MediaPreview = ({ file, url, type }: MediaPreviewProps) => {
           </DialogTitle>
         </DialogHeader>
         
-        <div className="mt-4 rounded-lg overflow-hidden bg-black">
+        <div className="mt-4 rounded-lg overflow-hidden bg-video-scrim">
           {type === "video" && youtubeId && (
             <div className="aspect-video">
               <iframe

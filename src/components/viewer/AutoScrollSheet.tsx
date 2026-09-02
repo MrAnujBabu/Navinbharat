@@ -116,7 +116,7 @@ export default function AutoScrollSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[69] flex items-end justify-center bg-black/40 sm:items-center [@media(max-height:520px)]:items-stretch [@media(max-height:520px)]:justify-end"
+      className="fixed inset-0 z-[69] flex items-end justify-center bg-overlay/40 sm:items-center [@media(max-height:520px)]:items-stretch [@media(max-height:520px)]:justify-end"
       onClick={onClose}
     >
       <div

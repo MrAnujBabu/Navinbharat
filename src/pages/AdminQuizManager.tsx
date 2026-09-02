@@ -827,7 +827,7 @@ const AdminQuizManager = () => {
                           className={cn(
                             "w-8 h-8 rounded-full border-2 shrink-0 flex items-center justify-center text-xs font-bold transition-colors",
                             q.correct_answer === String(oIdx)
-                              ? "border-green-500 bg-green-500 text-white"
+                              ? "border-green-500 bg-green-500 text-video-scrim-foreground"
                               : "border-muted-foreground/30 text-muted-foreground hover:border-green-400"
                           )}
                         >

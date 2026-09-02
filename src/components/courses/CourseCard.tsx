@@ -86,7 +86,7 @@ const CourseCard = ({ course, onClick, isAdmin, onAdminEnroll, isEnrolling, isEn
           )}
           <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
             {course.price === 0 && (
-              <Badge className="h-6 rounded-full bg-emerald-500/95 px-2 text-[10px] font-semibold text-white shadow-sm">
+              <Badge className="h-6 rounded-full bg-emerald-500/95 px-2 text-[10px] font-semibold text-video-scrim-foreground shadow-sm">
                 FREE
               </Badge>
             )}
@@ -102,14 +102,14 @@ const CourseCard = ({ course, onClick, isAdmin, onAdminEnroll, isEnrolling, isEn
         {/* Bottom row — lessons pill and rating pill share one row */}
         <div className="absolute inset-x-2 bottom-2 flex items-end justify-between gap-1.5">
           {isEnrolled || course.price === 0 ? (
-            <div className="inline-flex min-w-0 items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+            <div className="inline-flex min-w-0 items-center gap-1 rounded-full bg-video-scrim/45 px-2 py-1 text-[11px] font-medium text-video-scrim-foreground backdrop-blur-sm">
               <PlayCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{course.lessons_count || 0} Lessons</span>
             </div>
           ) : (
             <span />
           )}
-          <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+          <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-video-scrim/45 px-2 py-1 text-[11px] font-medium text-video-scrim-foreground backdrop-blur-sm">
             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
             {course.rating || "4.5"}
           </div>

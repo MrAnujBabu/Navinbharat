@@ -1107,7 +1107,7 @@ const AdminUpload = () => {
   return (
     <div className="min-h-dvh bg-background">
       {/* Header */}
-      <header className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 text-white shadow-lg">
+      <header className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 text-video-scrim-foreground shadow-lg">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Naveen Bharat" className="h-10 w-10 rounded-xl" />
@@ -1120,10 +1120,10 @@ const AdminUpload = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="text-white border-white/30 hover:bg-white/10 text-xs hidden sm:flex">
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="text-video-scrim-foreground border-white/30 hover:bg-white/10 text-xs hidden sm:flex">
               Dashboard
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-white hover:bg-white/10" aria-label="Log out">
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-video-scrim-foreground hover:bg-white/10" aria-label="Log out">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

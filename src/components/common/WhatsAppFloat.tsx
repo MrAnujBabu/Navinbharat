@@ -54,7 +54,7 @@ const WhatsAppFloat = ({
       className={[
         "fixed right-4 md:right-6 z-40",
         hideOnMobile ? "hidden md:flex" : "flex",
-        "h-14 w-14 rounded-full bg-whatsapp text-white shadow-lg shadow-whatsapp/30",
+        "h-14 w-14 rounded-full bg-whatsapp text-video-scrim-foreground shadow-lg shadow-whatsapp/30",
         "items-center justify-center",
         "hover:scale-105 active:scale-95 transition-transform duration-200",
         "motion-reduce:transition-none",

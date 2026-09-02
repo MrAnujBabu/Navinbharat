@@ -624,15 +624,15 @@ function BannerPreview({ banner }: { banner: HeroBanner }) {
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/20 to-transparent" />
       <div className="relative z-10 px-5 space-y-1">
         {banner.badge_text && (
-          <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-0.5 rounded-full border border-white/30">
+          <span className="inline-block bg-white/20 text-video-scrim-foreground text-xs font-semibold px-2 py-0.5 rounded-full border border-white/30">
             {banner.badge_text}
           </span>
         )}
-        <h3 className="text-white font-extrabold text-base leading-tight line-clamp-1">
+        <h3 className="text-video-scrim-foreground font-extrabold text-base leading-tight line-clamp-1">
           {banner.title}
         </h3>
         {banner.subtitle && (
-          <p className="text-white/90 text-xs">{banner.subtitle}</p>
+          <p className="text-video-scrim-foreground/90 text-xs">{banner.subtitle}</p>
         )}
         <button className="mt-1 inline-flex items-center bg-background text-foreground font-bold text-xs px-3 py-1.5 rounded-full shadow">
           {banner.cta_text}

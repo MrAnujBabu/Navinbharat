@@ -11,6 +11,10 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+// Snapshot 2026-09-02 (later): ratcheted 158 -> 110 after the full non-allowlist
+// sweep moved cards, dialogs, drawers, admin pages, live UI, and profile
+// surfaces to video-scrim / overlay / success tokens. What remains is exactly
+// the allowlist: video players, AdminLogin/AdminRegister, HeroCarousel.
 // Snapshot 2026-09-02: ratcheted 159 -> 158 after the reader safe-area bands
 // moved to the .nb-safe-band utility.
 // Snapshot 2026-09-01: ratcheted 172 -> 159 after Course.tsx / LessonView.tsx
@@ -22,7 +26,7 @@ import { join } from "node:path";
 // Allowlist by convention (not enforced): src/components/video/*,
 // src/pages/AdminLogin.tsx, src/pages/AdminRegister.tsx,
 // src/components/dashboard/HeroCarousel.tsx.
-const BUDGET = 158;
+const BUDGET = 110;
 
 const PATTERN = /\btext-white\b|\bbg-black\b/;
 const PATHS = ["src/components", "src/pages"];

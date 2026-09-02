@@ -49,7 +49,7 @@ const StatCard = ({ title, value, icon: Icon, sub, color }: {
           {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
         </div>
         <div className={`p-2.5 rounded-lg ${color}`}>
-          <Icon className="h-5 w-5 text-white" />
+          <Icon className="h-5 w-5 text-video-scrim-foreground" />
         </div>
       </div>
     </CardContent>
@@ -450,7 +450,7 @@ const AdminAnalytics = () => {
                     {topStudents.map((student, idx) => (
                       <div key={idx} className="flex items-center gap-3">
                         {/* Rank badge */}
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-video-scrim-foreground shrink-0
                           ${idx === 0 ? "bg-[hsl(38,92%,50%)]" : idx === 1 ? "bg-muted-foreground" : "bg-secondary"}`}>
                           {idx + 1}
                         </div>

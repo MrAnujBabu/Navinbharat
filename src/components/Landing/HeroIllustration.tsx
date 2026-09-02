@@ -50,7 +50,7 @@ const HeroIllustration = memo(() => (
         {/* floating paper-plane badge — bottom-right of girl */}
         <div
           aria-hidden
-          className="absolute -bottom-1 -right-1 h-9 w-9 rounded-xl bg-sky-500 text-white
+          className="absolute -bottom-1 -right-1 h-9 w-9 rounded-xl bg-sky-500 text-video-scrim-foreground
                      flex items-center justify-center shadow-lg shadow-sky-500/40
                      animate-[bounce_3.2s_ease-in-out_infinite] motion-reduce:animate-none"
         >
@@ -108,7 +108,7 @@ const HeroIllustration = memo(() => (
         {/* floating play badge — top-left of Naveen Bharat faculty */}
         <div
           aria-hidden
-          className="absolute -top-1 -left-1 h-9 w-9 rounded-xl bg-emerald-500 text-white
+          className="absolute -top-1 -left-1 h-9 w-9 rounded-xl bg-emerald-500 text-video-scrim-foreground
                      flex items-center justify-center shadow-lg shadow-emerald-500/40
                      animate-[bounce_2.8s_ease-in-out_infinite] motion-reduce:animate-none"
         >

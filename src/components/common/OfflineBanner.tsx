@@ -79,7 +79,7 @@ const OfflineBanner = () => {
         type="button"
         onClick={() => setVisible(false)}
         aria-label="Dismiss offline notice"
-        className="ml-2 rounded-full p-0.5 hover:bg-black/20"
+        className="ml-2 rounded-full p-0.5 hover:bg-overlay/20"
       >
         <X className="h-3 w-3" />
       </button>

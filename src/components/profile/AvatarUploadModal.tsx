@@ -186,7 +186,7 @@ const AvatarUploadModal = ({ isOpen, onClose, userId, currentAvatarUrl, fullName
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm mx-4 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-lg text-foreground">Change Avatar</h3>

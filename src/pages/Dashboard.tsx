@@ -377,8 +377,8 @@ const Dashboard = () => {
                       fallbackSrc={coursePlaceholder}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PlayCircle className="h-10 w-10 text-white" />
+                    <div className="absolute inset-0 bg-video-scrim/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <PlayCircle className="h-10 w-10 text-video-scrim-foreground" />
                     </div>
                   </div>
                   <div className="p-4 flex-1 flex flex-col justify-center gap-2">

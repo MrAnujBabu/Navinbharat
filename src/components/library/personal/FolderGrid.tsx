@@ -162,7 +162,7 @@ export default function FolderGrid({
                   className="h-12 w-14 shrink-0 rounded-md flex items-center justify-center shadow-inner"
                   style={{ backgroundColor: tint }}
                 >
-                  <Folder className="h-6 w-6 text-white fill-white/10" />
+                  <Folder className="h-6 w-6 text-video-scrim-foreground fill-white/10" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-foreground truncate leading-tight">

@@ -746,9 +746,9 @@ const DocumentReader = memo(
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
           className={cn(
             "absolute left-3 z-50 inline-flex items-center justify-center",
-            "h-11 w-11 rounded-full bg-black/55 text-white backdrop-blur-md",
+            "h-11 w-11 rounded-full bg-video-scrim/55 text-video-scrim-foreground backdrop-blur-md",
             "shadow-lg ring-1 ring-white/20 active:scale-95 transition-all",
-            "hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            "hover:bg-video-scrim/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             // Fade slightly when the header is visible so it doesn't overlap
             // the header's own back button, but never disappears.
             chromeVisible ? "opacity-0 pointer-events-none" : "opacity-100"

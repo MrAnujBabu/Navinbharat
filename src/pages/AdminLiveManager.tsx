@@ -315,7 +315,7 @@ const AdminLiveManager = () => {
           {previewSession && (
             <div className="flex-1 overflow-hidden flex flex-col">
               <div className="p-3 border-b border-border shrink-0">
-                <div className="bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
+                <div className="bg-video-scrim rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
                   <iframe
                     src={`https://www.youtube.com/embed/${previewSession.youtube_live_id}?autoplay=0&rel=0&modestbranding=1`}
                     title={previewSession.title}

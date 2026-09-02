@@ -208,7 +208,7 @@ const Chip = ({ active, onClick, children, tone }: { active: boolean; onClick: (
     className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px] active:scale-[0.97] duration-150
       ${active
         ? tone === "critical" ? "bg-destructive text-destructive-foreground border-destructive"
-        : tone === "high" ? "bg-[hsl(38,92%,50%)] text-white border-[hsl(38,92%,50%)]"
+        : tone === "high" ? "bg-[hsl(38,92%,50%)] text-video-scrim-foreground border-[hsl(38,92%,50%)]"
         : tone === "medium" ? "bg-primary text-primary-foreground border-primary"
         : "bg-foreground text-background border-foreground"
         : "bg-background text-foreground border-border hover:bg-muted"}`}

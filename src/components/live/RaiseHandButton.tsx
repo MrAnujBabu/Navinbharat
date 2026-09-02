@@ -89,7 +89,7 @@ const RaiseHandButton = ({ sessionId }: RaiseHandButtonProps) => {
       variant={handRaised ? "destructive" : "secondary"}
       className={`gap-2 font-semibold transition-all ${
         handRaised
-          ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-400"
+          ? "bg-amber-500 hover:bg-amber-600 text-video-scrim-foreground border-amber-400"
           : "bg-card border border-border hover:bg-muted"
       }`}
     >

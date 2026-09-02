@@ -71,7 +71,7 @@ const ProfileAvatar = memo(({ avatarUrl, fullName, userId, size = "sm", onClick,
           shows initials instead of alt-text bleed. Fades out only AFTER
           the image successfully paints, so we never blink between them. */}
       <span
-        className="absolute inset-0 flex items-center justify-center text-white transition-opacity duration-150"
+        className="absolute inset-0 flex items-center justify-center text-video-scrim-foreground transition-opacity duration-150"
         style={{
           backgroundColor: bgColor,
           opacity: avatarUrl && loaded ? 0 : 1,

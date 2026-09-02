@@ -168,7 +168,7 @@ export default function UniversalFileViewer(props: Props) {
           />
         )}
         {kind === "VIDEO" && !videoEmbed && (
-          <video src={url} controls className="h-full w-full bg-black" />
+          <video src={url} controls className="h-full w-full bg-video-scrim" />
         )}
       </div>
     </div>

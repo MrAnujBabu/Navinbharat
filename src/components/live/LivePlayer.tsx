@@ -35,7 +35,7 @@ const LivePlayer = ({ youtubeId, title, recordingUrl }: LivePlayerProps) => {
       {/* Reload — sirf yahi option, no external link */}
       <button
         onClick={handleReload}
-        className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/70 hover:text-white transition-colors"
+        className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-video-scrim/40 hover:bg-video-scrim/60 text-video-scrim-foreground/70 hover:text-video-scrim-foreground transition-colors"
         title="Reload stream"
         aria-label="Reload stream"
       >

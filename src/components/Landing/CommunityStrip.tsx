@@ -38,7 +38,7 @@ const CommunityStrip = memo(() => {
                 void openSocialLink(TELEGRAM_URL);
               }
             }}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-11 px-6 rounded-md bg-brand-telegram text-white text-sm font-medium hover:bg-brand-telegram-hover active:scale-[0.97] transition-all duration-150 shadow-sm"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-11 px-6 rounded-md bg-brand-telegram text-video-scrim-foreground text-sm font-medium hover:bg-brand-telegram-hover active:scale-[0.97] transition-all duration-150 shadow-sm"
           >
             <Send className="h-4 w-4" />
             Join Telegram

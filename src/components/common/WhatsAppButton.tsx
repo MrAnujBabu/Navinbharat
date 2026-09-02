@@ -44,7 +44,7 @@ const WhatsAppButton = ({
       }}
       className={cn(
         variant === "circle"
-          ? "inline-flex items-center justify-center h-8 w-8 rounded-full border border-whatsapp/40 bg-whatsapp/10 text-whatsapp hover:bg-whatsapp hover:text-white transition-colors"
+          ? "inline-flex items-center justify-center h-8 w-8 rounded-full border border-whatsapp/40 bg-whatsapp/10 text-whatsapp hover:bg-whatsapp hover:text-video-scrim-foreground transition-colors"
           : "inline-flex items-center gap-1 text-whatsapp hover:opacity-80 transition-opacity",
         className
       )}

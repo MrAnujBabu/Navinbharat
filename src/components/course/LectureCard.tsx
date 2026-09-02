@@ -248,16 +248,16 @@ const LectureCardImpl = ({
               <SmartImage src={thumbSrc} alt={title} width={180} height={180} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-slate-700 dark:to-slate-900 flex items-center justify-center">
-                {isLocked ? <Lock className="h-5 w-5 text-white/80" /> : isTest ? <ClipboardCheck className="h-5 w-5 text-foreground/70" /> : <Play className="h-5 w-5 text-foreground/70 fill-foreground/70" />}
+                {isLocked ? <Lock className="h-5 w-5 text-video-scrim-foreground/80" /> : isTest ? <ClipboardCheck className="h-5 w-5 text-foreground/70" /> : <Play className="h-5 w-5 text-foreground/70 fill-foreground/70" />}
               </div>
             )}
             {isLocked && thumbSrc && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><Lock className="h-4 w-4 text-white/90" /></div>
+              <div className="absolute inset-0 bg-video-scrim/50 flex items-center justify-center"><Lock className="h-4 w-4 text-video-scrim-foreground/90" /></div>
             )}
             {/* Red play badge bottom-left */}
             {isVideo && !isLocked && (
               <div className="absolute bottom-1.5 left-1.5 bg-red-500 rounded-full p-1 shadow-sm">
-                <Play className="h-3 w-3 text-white fill-white" />
+                <Play className="h-3 w-3 text-video-scrim-foreground fill-current" />
               </div>
             )}
           </div>

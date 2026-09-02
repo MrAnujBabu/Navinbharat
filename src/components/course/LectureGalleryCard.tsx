@@ -66,8 +66,8 @@ export const LectureGalleryCard = ({
                   className="w-full h-full object-cover"
                 />
                 {isLocked && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <Lock className="h-8 w-8 text-white/80" />
+                  <div className="absolute inset-0 bg-video-scrim/50 flex items-center justify-center">
+                    <Lock className="h-8 w-8 text-video-scrim-foreground/80" />
                   </div>
                 )}
               </div>
@@ -88,7 +88,7 @@ export const LectureGalleryCard = ({
           <CheckCircle2 className="absolute top-2 right-2 w-5 h-5 text-green-500" aria-label="Done" />
         )}
         {(duration != null && duration > 0) && (
-          <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+          <span className="absolute bottom-2 left-2 bg-video-scrim/70 text-video-scrim-foreground text-[10px] font-medium px-1.5 py-0.5 rounded">
             {formatDuration(duration)}
           </span>
         )}

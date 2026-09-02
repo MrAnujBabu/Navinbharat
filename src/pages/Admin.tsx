@@ -867,7 +867,7 @@ const Admin = () => {
                               )}
                               {req._status === 'pending' && (
                                 <div className="flex gap-2">
-                                  <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApprovePayment(req)}>
+                                  <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={() => handleApprovePayment(req)}>
                                     <CheckCircle className="h-4 w-4 mr-1" />Approve
                                   </Button>
                                   <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleRejectPayment(req.id)}>
@@ -1043,7 +1043,7 @@ const Admin = () => {
                                 <p className="text-xs text-muted-foreground truncate">{student.email}</p>
                               </div>
                             </div>
-                            <Button size="sm" className="flex-shrink-0 ml-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            <Button size="sm" className="flex-shrink-0 ml-2 bg-success hover:bg-success/90 text-success-foreground"
                               disabled={roleChanging[student.id]} onClick={() => handleChangeRole(student.id, 'teacher')}>
                               {roleChanging[student.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <><GraduationCap className="h-3 w-3 mr-1" />Make Teacher</>}
                             </Button>

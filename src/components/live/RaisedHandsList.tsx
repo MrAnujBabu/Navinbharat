@@ -78,7 +78,7 @@ const RaisedHandsList = ({ sessionId }: RaisedHandsListProps) => {
           <Hand className="h-4 w-4 text-amber-500" />
           <span className="text-sm font-semibold text-foreground">Raised Hands</span>
           {raisedHands.length > 0 && (
-            <Badge className="bg-amber-500 text-white text-[10px] h-4 px-1.5">
+            <Badge className="bg-amber-500 text-video-scrim-foreground text-[10px] h-4 px-1.5">
               {raisedHands.length}
             </Badge>
           )}

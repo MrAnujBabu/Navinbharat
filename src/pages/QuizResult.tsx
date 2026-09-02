@@ -469,7 +469,7 @@ const QuizResult = () => {
           </div>
 
           {/* Time bar at bottom of hero */}
-          <div className="bg-black/20 px-5 py-2.5 flex items-center justify-between text-xs text-primary-foreground/70">
+          <div className="bg-overlay/20 px-5 py-2.5 flex items-center justify-between text-xs text-primary-foreground/70">
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               Time Taken: <strong className="text-primary-foreground">{formatTime(attempt.time_taken_seconds)}</strong>
