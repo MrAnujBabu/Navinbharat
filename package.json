@@ -21,6 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:maestro": "bash scripts/maestro-run.sh",
+    "test:maestro:smoke": "bash scripts/maestro-run.sh --include-tags smoke",
     "start": "NODE_ENV=production node server/index.js",
     "cap:sync": "node scripts/cap-sync.mjs",
     "cap:android": "npx cap open android",
