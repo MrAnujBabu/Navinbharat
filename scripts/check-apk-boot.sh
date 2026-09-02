@@ -75,25 +75,42 @@ fi
 echo "✅ APK boots cleanly on the emulator."
 
 # ---------------------------------------------------------------------------
-# Deep-link smoke: the manifest now claims a custom scheme and Android App
-# Links. A typo in either intent-filter is invisible to a plain launch test.
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
 # App Links only verify when assetlinks.json carries the SHA-256 of the cert
 # the installed APK is actually signed with. A rebuilt debug keystore silently
 # breaks every https:// deep link, so assert the match here.
 # ---------------------------------------------------------------------------
-if command -v keytool >/dev/null 2>&1; then
-  FP="$(keytool -printcert -jarfile "$APK" | grep -m1 "SHA256:" | sed 's/.*SHA256: *//' | tr -d ' \r')"
+FP=""
+# apksigner reads the v2/v3 APK Signature Scheme blocks; keytool only sees the
+# legacy v1 JAR signature, which Gradle no longer always writes. Try both, and
+# never let the extraction itself abort the smoke test.
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+APKSIGNER="$(ls "$SDK_ROOT"/build-tools/*/apksigner 2>/dev/null | tail -n 1 || true)"
+if [ -n "$APKSIGNER" ]; then
+  FP="$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | grep -m1 -i "SHA-256 digest" | sed -E 's/.*: *//' | tr -d ' \r' || true)"
+  # apksigner prints the digest unseparated; assetlinks stores colon-separated.
+  if [ -n "$FP" ]; then
+    FP="$(printf '%s' "$FP" | tr 'a-f' 'A-F' | sed -E 's/(..)/\1:/g; s/:$//')"
+  fi
+fi
+if [ -z "$FP" ] && command -v keytool >/dev/null 2>&1; then
+  FP="$(keytool -printcert -jarfile "$APK" 2>/dev/null | grep -m1 "SHA256:" | sed 's/.*SHA256: *//' | tr -d ' \r' || true)"
+fi
+
+if [ -z "$FP" ]; then
+  echo "⚠️  could not read the APK signing certificate — skipping the assetlinks cross-check."
+else
   echo "==> APK signing SHA-256: $FP"
-  if ! grep -q "$FP" public/.well-known/assetlinks.json; then
+  if ! grep -qi "$FP" public/.well-known/assetlinks.json; then
     echo "::error::APK fingerprint $FP is not in public/.well-known/assetlinks.json — Android App Links will not verify."
     exit 1
   fi
-else
-  echo "keytool unavailable — skipping fingerprint/assetlinks cross-check."
+  echo "Fingerprint matches assetlinks.json."
 fi
 
+# ---------------------------------------------------------------------------
+# Deep-link smoke: the manifest claims a custom scheme and Android App Links.
+# A typo in either intent-filter is invisible to a plain launch test.
+# ---------------------------------------------------------------------------
 echo "==> Deep link: com.naveenbharat.app://buy-course"
 adb shell am start -a android.intent.action.VIEW \
   -c android.intent.category.BROWSABLE \
