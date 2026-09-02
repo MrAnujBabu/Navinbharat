@@ -118,11 +118,43 @@ jobs:
           test -s "$RUNNER_TEMP/signing/release.keystore" || { echo "::error::decoded keystore is empty — KEYSTORE_BASE64 is not valid base64"; exit 1; }
           echo "KEYSTORE_PATH=$RUNNER_TEMP/signing/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Assemble release APK
+      # Signing fails deep inside :app:packageRelease with an unreadable
+      # "Given final block not properly padded" when the key password does not
+      # match the alias. Probe it here instead: `-certreq` needs the *private
+      # key*, so it is the cheapest real check of storepass + alias + keypass.
+      # Many keystores are created with the key password equal to the store
+      # password, so fall back to that before failing.
+      - name: Verify keystore credentials
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1 \
+            || { echo "::error::KEYSTORE_PASSWORD does not open the keystore"; exit 1; }
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1 \
+            || { echo "::error::KEY_ALIAS is not present in the keystore"; exit 1; }
+          probe() {
+            keytool -certreq -alias "$KEY_ALIAS" -keystore "$KEYSTORE_PATH" \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$1" >/dev/null 2>&1
+          }
+          if probe "$KEY_PASSWORD"; then
+            echo "Key password: KEY_PASSWORD secret"
+            echo "RESOLVED_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          elif probe "$KEYSTORE_PASSWORD"; then
+            echo "::warning::KEY_PASSWORD did not unlock the key; using KEYSTORE_PASSWORD (key password == store password)"
+            echo "RESOLVED_KEY_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::error::Neither KEY_PASSWORD nor KEYSTORE_PASSWORD unlocks alias '$KEY_ALIAS'. Update the KEY_PASSWORD repo secret."
+            exit 1
+          fi
+
+      - name: Assemble release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.RESOLVED_KEY_PASSWORD }}
         run: |
           set -e
           chmod +x android/gradlew
@@ -296,3 +328,4 @@ jobs:
           name: Naveen Bharat ${{ github.ref_name }}
           files: android/app/build/outputs/apk/release/Naveen-Bharat.apk
           generate_release_notes: true
+
