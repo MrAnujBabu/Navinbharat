@@ -1,0 +1,17 @@
+appId: com.naveenbharat.app
+name: common/launch
+---
+# Cold launch with a clean state. `clearState` keeps flows independent so a
+# failing login flow cannot leave a signed-in session behind for the next one.
+- launchApp:
+    clearState: true
+    stopApp: true
+# Splash is JS-hidden on first React paint (SplashHider.tsx). If React never
+# mounts, the assertions below are where the run fails — which is exactly the
+# boot regression Maestro exists to catch.
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 30000
+# Android's native crash dialogs. If either shows, the WebView died on boot.
+- assertNotVisible: ".*isn't responding.*"
+- assertNotVisible: ".*keeps stopping.*"
