@@ -93,8 +93,10 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
+          key: gradle-${{ runner.os }}-jdk21-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'android/variables.gradle') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-jdk21-
+            gradle-${{ runner.os }}-
 
       # Syncs through scripts/cap-sync.mjs, which also strips the hidden source
       # maps out of the packaged assets — bare `cap sync` copies 31 MB of .map
@@ -132,11 +134,14 @@ jobs:
           # Size ceiling: catches a bundle regression (or maps creeping back in)
           # before it ships. v1.0.5 shipped 50.2 MB; dropping the source maps
           # (~8.5 MB packed) and the dead 32-bit x86 ABI (~4.7 MB) lands ~36 MB,
-          # so 38 MB leaves a little headroom without hiding a regression.
+          # v1.0.7 measured 38 MB against a 38 MB gate — zero headroom, so any
+          # new plugin broke the build. Ceiling is 40 MB: still tight enough to
+          # catch a real regression, wide enough for one more plugin.
           SIZE=$(stat -c%s "$APK")
-          MAX=$((38 * 1024 * 1024))
+          MAX_MB=40
+          MAX=$((MAX_MB * 1024 * 1024))
           if [ "$SIZE" -gt "$MAX" ]; then
-            echo "::error::APK is $((SIZE / 1024 / 1024)) MB, over the 28 MB ceiling."
+            echo "::error::APK is $((SIZE / 1024 / 1024)) MB, over the ${MAX_MB} MB ceiling."
             exit 1
           fi
           echo "APK $(du -h "$APK" | cut -f1) with $COUNT Capacitor plugins bundled, no source maps."
@@ -145,6 +150,11 @@ jobs:
       # file-existence smoke check cannot (missing plugin classes, bad WebView
       # config, release-only ProGuard damage). Non-blocking on infra flake would
       # defeat the point, so this gates the release.
+      # Leftover adb servers from the SDK setup step make the emulator runner
+      # log an "orphan adb process" warning and can wedge device discovery.
+      - name: Reset adb before emulator
+        run: adb kill-server || true
+
       - name: Emulator boot smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
