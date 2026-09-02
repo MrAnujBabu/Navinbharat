@@ -130,9 +130,11 @@ jobs:
           fi
 
           # Size ceiling: catches a bundle regression (or maps creeping back in)
-          # before it ships. v1.0.5 was 50.2 MB with maps, ~20 MB without.
+          # before it ships. v1.0.5 shipped 50.2 MB; dropping the source maps
+          # (~8.5 MB packed) and the dead 32-bit x86 ABI (~4.7 MB) lands ~36 MB,
+          # so 38 MB leaves a little headroom without hiding a regression.
           SIZE=$(stat -c%s "$APK")
-          MAX=$((28 * 1024 * 1024))
+          MAX=$((38 * 1024 * 1024))
           if [ "$SIZE" -gt "$MAX" ]; then
             echo "::error::APK is $((SIZE / 1024 / 1024)) MB, over the 28 MB ceiling."
             exit 1

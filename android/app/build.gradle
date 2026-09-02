@@ -27,6 +27,13 @@ android {
         versionName safeVersionName
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Ship only the ABIs that real devices and the CI emulator need.
+        // 32-bit x86 has no device or emulator target left (the CI emulator is
+        // x86_64) and cost ~4.7 MB of native libs in every APK.
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
