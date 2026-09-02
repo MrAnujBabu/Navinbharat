@@ -1,1 +1,6 @@
 project_id = "cmbattmjwriiesibayfk"
+
+# Server-to-server sweeper: authenticated by the PAYMENT_SWEEP_SECRET shared
+# secret in the x-sweep-secret header, not by a user JWT.
+[functions.settle-pending-payments]
+verify_jwt = false
