@@ -15,6 +15,10 @@ const RaiseHandButton = ({ sessionId }: RaiseHandButtonProps) => {
 
   useEffect(() => {
     if (!user) return;
+    // Students join/leave a live class fast, so this query regularly resolves
+    // after the component is gone. Without the guard that is a setState on an
+    // unmounted component, and the stale closure keeps the old session's value.
+    let cancelled = false;
     const fetchStatus = async () => {
       const { data } = await supabase
         .from("live_participants")
@@ -22,6 +26,7 @@ const RaiseHandButton = ({ sessionId }: RaiseHandButtonProps) => {
         .eq("session_id", sessionId)
         .eq("user_id", user.id)
         .maybeSingle();
+      if (cancelled) return;
       if (data) setHandRaised(data.hand_raised);
     };
     fetchStatus();
@@ -44,7 +49,10 @@ const RaiseHandButton = ({ sessionId }: RaiseHandButtonProps) => {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, [user, sessionId]);
 
   const toggleHand = async () => {
