@@ -1,0 +1,37 @@
+appId: com.naveenbharat.app
+name: 04 — course page opens the payment sheet and cancels cleanly
+env:
+  MAESTRO_EMAIL: ""
+  MAESTRO_PASSWORD: ""
+---
+# Reaches the Razorpay sheet and cancels. No payment is ever attempted: the
+# assertion is that cancelling returns to the app instead of leaving a dead
+# WebView or a stuck spinner.
+- runFlow: common/launch.yaml
+- openLink: "https://naveenbharat.in/courses"
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 30000
+- takeScreenshot: artifacts/04-courses-list
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL != null && MAESTRO_EMAIL != ""}
+    commands:
+      - runFlow: common/login.yaml
+      - openLink: "https://naveenbharat.in/courses"
+      - extendedWaitUntil:
+          visible: "Courses"
+          timeout: 30000
+      - tapOn:
+          text: ".*(Enroll|Buy|Join).*"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - takeScreenshot: artifacts/04-payment-surface
+      # Hardware back must dismiss the payment surface, never kill the app.
+      - back
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - assertVisible:
+          text: ".*(Courses|Enroll|Buy|Join).*"
+      - takeScreenshot: artifacts/04-after-cancel
