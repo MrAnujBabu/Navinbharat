@@ -13,6 +13,14 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- The PDF reader paints its own black backdrop and hides the system
+             bars. If Android ever reveals the status-bar inset (rotation race,
+             edge swipe, resume) the window must NOT paint it with the light
+             default colour — that was the 28px white strip above the document
+             in landscape. Transparent keeps the band invisible. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
 

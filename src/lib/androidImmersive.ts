@@ -36,6 +36,39 @@ export const acquireReaderImmersive = () => {
   };
 };
 
+/**
+ * Android drops back out of immersive mode on every configuration change, so
+ * on rotation the system re-inserts the status-bar inset. The reader already
+ * re-applied the hide, but only behind a 120ms debounce — long enough for the
+ * white status-bar band to be visible (and screenshotted) at the top of a
+ * landscape PDF. Re-assert immediately, then again once the rotation animation
+ * settles, because Android re-applies its own insets at the end of it.
+ *
+ * Guarded by the ownership counters so this never fights normal app screens.
+ */
+let rotationGuardInstalled = false;
+const isImmersiveOwned = () => readerOwners > 0 || fakeFullscreenOwners > 0;
+
+export const installImmersiveRotationGuard = () => {
+  if (rotationGuardInstalled || typeof window === "undefined") return;
+  rotationGuardInstalled = true;
+  let settle: number | null = null;
+  const reassert = () => {
+    if (!isImmersiveOwned()) return;
+    enterImmersive();
+    if (settle) window.clearTimeout(settle);
+    settle = window.setTimeout(() => {
+      if (isImmersiveOwned()) enterImmersive();
+    }, 250);
+  };
+  window.addEventListener("orientationchange", reassert);
+  window.addEventListener("resize", reassert);
+  window.addEventListener("focus", reassert);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") reassert();
+  });
+};
+
 let installed = false;
 export const installImmersiveAutoToggle = () => {
   if (installed || typeof document === "undefined") return;
@@ -46,7 +79,9 @@ export const installImmersiveAutoToggle = () => {
   };
   document.addEventListener("fullscreenchange", onChange);
   fakeFullscreenListener = onChange;
+  installImmersiveRotationGuard();
 };
+
 
 /**
  * Fake-fullscreen ownership, reported directly by the player.
