@@ -1,0 +1,17 @@
+# Maestro workspace config for the Naveen Bharat Android app.
+#
+# Run everything:      bun run test:maestro
+# Run the smoke pair:  bun run test:maestro:smoke
+#
+# Flows are ordered by filename. `common/` holds reusable subflows and is
+# excluded from the top-level run so they never execute standalone.
+flows:
+  - "*.yaml"
+
+exclude:
+  - "common/*.yaml"
+
+# Every flow gets a screenshot on failure plus the Maestro debug bundle,
+# which CI uploads as an artifact.
+executionOrder:
+  continueOnFailure: false
