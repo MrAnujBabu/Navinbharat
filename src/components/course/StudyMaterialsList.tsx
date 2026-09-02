@@ -164,7 +164,7 @@ export default function StudyMaterialsList({ courseId, chapters }: Props) {
                 setFilter(f.id);
               }}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 h-7 rounded-full text-xs whitespace-nowrap transition-colors duration-150",
+                "inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-xs whitespace-nowrap transition-colors duration-150",
                 active
                   ? "bg-foreground text-background font-medium"
                   : "border border-border/60 bg-background text-foreground/70 hover:bg-muted/60 hover:text-foreground",

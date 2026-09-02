@@ -164,7 +164,7 @@ export default {
   			'2xl': 'var(--shadow-2xl)'
   		},
 		fontSize: {
-			nav: ['10px', { lineHeight: '12px' }],
+			nav: ['11px', { lineHeight: '14px' }],
 			'display-sm': ['2.25rem', { lineHeight: '1.05', letterSpacing: '-0.02em' }],
 			'display-md': ['3rem',    { lineHeight: '1.02', letterSpacing: '-0.022em' }],
 			'display-lg': ['3.75rem', { lineHeight: '1.0',  letterSpacing: '-0.025em' }],
