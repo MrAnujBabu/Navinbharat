@@ -197,7 +197,9 @@ jobs:
           test -n "$APKSIGNER" || { echo "::error::apksigner not found in the Android SDK"; exit 1; }
           "$APKSIGNER" verify --print-certs "$APK"
           FP="$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 -i 'SHA-256 digest' | sed -E 's/.*: *//' | tr -d ' \r' | tr 'a-f' 'A-F' | sed -E 's/(..)/\1:/g; s/:$//')"
+          FP1="$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 -i 'SHA-1 digest' | sed -E 's/.*: *//' | tr -d ' \r' | tr 'a-f' 'A-F' | sed -E 's/(..)/\1:/g; s/:$//')"
           echo "Release certificate SHA-256: $FP"
+          echo "Release certificate SHA-1:   $FP1"
           if [ "$FP" = "96:32:FF:20:C8:AD:43:B9:16:26:9C:C7:89:C5:84:BD:CD:AB:7B:01:31:51:88:A4:13:86:D0:D6:5E:FA:1B:1F" ]; then
             echo "::error::APK is signed with the committed DEBUG key — release signing did not take effect"
             exit 1
@@ -205,14 +207,18 @@ jobs:
           if [ -n "$EXPECTED_SHA256" ]; then
             NORM="$(printf '%s' "$EXPECTED_SHA256" | tr -d ' \r' | tr 'a-f' 'A-F')"
             case "$NORM" in *:*) ;; *) NORM="$(printf '%s' "$NORM" | sed -E 's/(..)/\1:/g; s/:$//')" ;; esac
-            if [ "$FP" != "$NORM" ]; then
-              echo "::error::release certificate $FP does not match the ANDROID_CERT_SHA256 secret ($NORM)"
+            # Accept either digest form: some projects pin the SHA-1 App Links
+            # fingerprint in this secret. Anything else is a real key mismatch.
+            if [ "$NORM" = "$FP" ] || [ "$NORM" = "$FP1" ]; then
+              echo "Certificate matches the pinned ANDROID_CERT_SHA256 secret."
+            else
+              echo "::error::pinned certificate secret matches neither the release SHA-256 ($FP) nor SHA-1 ($FP1). Update ANDROID_CERT_SHA256 to the SHA-256 above, or fix the keystore."
               exit 1
             fi
-            echo "Certificate matches ANDROID_CERT_SHA256."
           else
             echo "::warning::ANDROID_CERT_SHA256 is not set — skipped the pinned-certificate comparison."
           fi
+
           rm -f "$KEYSTORE_PATH"
 
       - name: APK smoke check
