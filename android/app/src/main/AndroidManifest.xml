@@ -22,6 +22,40 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Custom scheme deep links: com.naveenbharat.app://buy-course etc.
+                 Also the return path for Razorpay UPI intents that bounce out to
+                 PhonePe / GPay / Paytm. Mirrors APP_SCHEME in src/config/deepLinks.ts. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.naveenbharat.app" />
+            </intent-filter>
+
+            <!-- Android App Links. Path prefixes mirror DEEP_LINK_PATH_PREFIXES in
+                 src/config/deepLinks.ts and are verified against
+                 https://navinbharat.vercel.app/.well-known/assetlinks.json -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="navinbharat.vercel.app" />
+                <data android:pathPrefix="/course" />
+                <data android:pathPrefix="/my-courses" />
+                <data android:pathPrefix="/classes" />
+                <data android:pathPrefix="/lesson" />
+                <data android:pathPrefix="/chapter" />
+                <data android:pathPrefix="/quiz" />
+                <data android:pathPrefix="/live" />
+                <data android:pathPrefix="/reset-password" />
+                <data android:pathPrefix="/payment-callback" />
+                <data android:pathPrefix="/buy-course" />
+                <data android:pathPrefix="/dashboard" />
+                <data android:pathPrefix="/profile" />
+                <data android:pathPrefix="/settings" />
+                <data android:pathPrefix="/library" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -34,6 +68,28 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
     </application>
+
+    <!-- Android 11+ package visibility. Without this the Razorpay SDK cannot
+         see installed UPI apps and the checkout sheet silently collapses to
+         card / netbanking only. See src/utils/razorpayNative.ts. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <package android:name="com.google.android.apps.nbu.paisa.user" /> <!-- Google Pay -->
+        <package android:name="com.phonepe.app" />                        <!-- PhonePe -->
+        <package android:name="net.one97.paytm" />                        <!-- Paytm -->
+        <package android:name="in.org.npci.upiapp" />                     <!-- BHIM -->
+        <package android:name="com.dreamplug.androidapp" />               <!-- CRED -->
+        <package android:name="in.amazon.mShop.android.shopping" />       <!-- Amazon Pay -->
+        <package android:name="com.myairtelapp" />                        <!-- Airtel Payments -->
+        <package android:name="com.whatsapp" />                           <!-- WhatsApp Pay -->
+    </queries>
 
     <!-- Permissions -->
 

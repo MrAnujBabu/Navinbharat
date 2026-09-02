@@ -40,13 +40,31 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Stable debug signing key committed at android/keystore/debug.keystore.
+    // Android's auto-generated ~/.android/debug.keystore is regenerated on every
+    // fresh CI runner, so its SHA-256 changes each build and Android App Links
+    // could never verify against .well-known/assetlinks.json. Pinning the key
+    // makes the fingerprint deterministic. This is a DEBUG key only — it is not
+    // a secret and must never be used for a Play Store release build.
+    signingConfigs {
+        debug {
+            storeFile file('../keystore/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
+
 
 repositories {
     flatDir{

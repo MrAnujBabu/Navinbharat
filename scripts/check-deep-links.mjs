@@ -128,10 +128,55 @@ if (fs.existsSync(MANIFEST) && fs.existsSync(DEEP_LINKS)) {
   }
 }
 
+
+// --- 4. scheme + path-prefix parity --------------------------------------
+// The custom scheme is the Razorpay UPI-intent return path, and every prefix
+// the router claims must be declared or that link opens in Chrome instead.
+if (fs.existsSync(MANIFEST) && fs.existsSync(DEEP_LINKS)) {
+  const manifest = fs.readFileSync(MANIFEST, "utf8");
+  const cfg = fs
+    .readFileSync(DEEP_LINKS, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  const scheme = /APP_SCHEME = "([^"]+)"/.exec(cfg)?.[1];
+  if (!scheme) {
+    errors.push("Could not parse APP_SCHEME from src/config/deepLinks.ts.");
+  } else if (!manifest.includes(`android:scheme="${scheme}"`)) {
+    errors.push(
+      `AndroidManifest.xml has no <data android:scheme="${scheme}" /> — custom-scheme links ` +
+        "(and the Razorpay UPI return) never reach the app.",
+    );
+  }
+
+  const prefixBlock = /DEEP_LINK_PATH_PREFIXES = \[([\s\S]*?)\] as const/.exec(cfg)?.[1];
+  if (!prefixBlock) {
+    errors.push("Could not parse DEEP_LINK_PATH_PREFIXES from src/config/deepLinks.ts.");
+  } else {
+    const prefixes = [...prefixBlock.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const missing = prefixes.filter((x) => !manifest.includes(`android:pathPrefix="${x}"`));
+    if (missing.length) {
+      errors.push(`AndroidManifest.xml is missing pathPrefix entries: ${missing.join(", ")}`);
+    }
+  }
+}
+
+// --- 5. UPI package visibility -------------------------------------------
+// Android 11+ filters package visibility. Without <queries> the Razorpay SDK
+// cannot see PhonePe / GPay / Paytm and the checkout sheet quietly drops UPI.
+if (fs.existsSync(MANIFEST)) {
+  const manifest = fs.readFileSync(MANIFEST, "utf8");
+  if (!/<queries>/.test(manifest)) {
+    errors.push("AndroidManifest.xml has no <queries> block — UPI apps will not appear in Razorpay checkout.");
+  } else if (!/android:scheme="upi"/.test(manifest)) {
+    errors.push('<queries> is missing the <data android:scheme="upi" /> visibility intent.');
+  }
+}
+
 if (errors.length) {
   console.error("❌ Deep-link guard failed:");
   for (const e of errors) console.error(` - ${e}`);
   process.exit(1);
 }
 
-console.log("✅ Deep-link guard passed (no placeholders, assetlinks shape ok, host parity ok).");
+console.log("✅ Deep-link guard passed (no placeholders, assetlinks shape ok, host/scheme/prefix parity ok, UPI queries present).");

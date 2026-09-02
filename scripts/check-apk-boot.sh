@@ -73,3 +73,46 @@ if printf '%s' "$LOG" | grep -Eq "net::ERR_|Failed to load resource: file:///and
 fi
 
 echo "✅ APK boots cleanly on the emulator."
+
+# ---------------------------------------------------------------------------
+# Deep-link smoke: the manifest now claims a custom scheme and Android App
+# Links. A typo in either intent-filter is invisible to a plain launch test.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# App Links only verify when assetlinks.json carries the SHA-256 of the cert
+# the installed APK is actually signed with. A rebuilt debug keystore silently
+# breaks every https:// deep link, so assert the match here.
+# ---------------------------------------------------------------------------
+if command -v keytool >/dev/null 2>&1; then
+  FP="$(keytool -printcert -jarfile "$APK" | grep -m1 "SHA256:" | sed 's/.*SHA256: *//' | tr -d ' \r')"
+  echo "==> APK signing SHA-256: $FP"
+  if ! grep -q "$FP" public/.well-known/assetlinks.json; then
+    echo "::error::APK fingerprint $FP is not in public/.well-known/assetlinks.json — Android App Links will not verify."
+    exit 1
+  fi
+else
+  echo "keytool unavailable — skipping fingerprint/assetlinks cross-check."
+fi
+
+echo "==> Deep link: com.naveenbharat.app://buy-course"
+adb shell am start -a android.intent.action.VIEW \
+  -c android.intent.category.BROWSABLE \
+  -d "com.naveenbharat.app://buy-course" >/tmp/deeplink.out 2>&1 || true
+cat /tmp/deeplink.out
+if grep -qi "Error\|Activity not started, unable to resolve" /tmp/deeplink.out; then
+  echo "::error::custom-scheme deep link did not resolve to $PKG"
+  exit 1
+fi
+
+sleep 6
+PID="$(adb shell pidof "$PKG" | tr -d '\r' || true)"
+if [ -z "$PID" ]; then
+  echo "::error::$PKG died handling the deep link."
+  adb logcat -d -v brief | grep -Ei "$PKG|FATAL EXCEPTION|AndroidRuntime" | tail -n 80
+  exit 1
+fi
+
+echo "==> Declared App Link domains"
+adb shell pm get-app-links "$PKG" || true
+
+echo "✅ Deep links resolve and the app survives them."

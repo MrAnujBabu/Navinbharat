@@ -47,4 +47,18 @@ describe("deep links", () => {
     expect(toInternalPath(preview)).toBeNull();
     expect(toInternalPath(preview, { dev: true })).toBe("/dashboard");
   });
+  it("rejects hostile URLs", () => {
+    // javascript: / data: must never reach the router.
+    expect(toInternalPath("javascript:alert(1)")).toBeNull();
+    expect(toInternalPath("data:text/html,<script>alert(1)</script>")).toBeNull();
+    // Protocol-relative open redirect.
+    expect(toInternalPath("//evil.com/dashboard")).toBeNull();
+    // Host-suffix spoofing around the trusted app-link host.
+    expect(toInternalPath("https://navinbharat.vercel.app.evil.com/dashboard")).toBeNull();
+    expect(toInternalPath("https://evil.com/?next=https://navinbharat.vercel.app/dashboard")).toBeNull();
+    // Userinfo trick: real host is evil.com.
+    expect(toInternalPath("https://navinbharat.vercel.app@evil.com/dashboard")).toBeNull();
+    // Unclaimed admin surface over the custom scheme.
+    expect(toInternalPath(`${APP_SCHEME}://admin`)).toBeNull();
+  });
 });
