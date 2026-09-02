@@ -46,6 +46,14 @@ android {
     // could never verify against .well-known/assetlinks.json. Pinning the key
     // makes the fingerprint deterministic. This is a DEBUG key only — it is not
     // a secret and must never be used for a Play Store release build.
+    // Release signing comes from CI env vars only (KEYSTORE_PATH is written by the
+    // workflow after decoding the KEYSTORE_BASE64 secret). The keystore file itself is
+    // NEVER committed. When the env vars are absent (local dev), the release build falls
+    // back to the debug key so `gradlew assembleRelease` still works locally — CI asserts
+    // the real certificate fingerprint, so an accidentally debug-signed release cannot ship.
+    def releaseKeystorePath = System.getenv("KEYSTORE_PATH")
+    def hasReleaseKeystore = releaseKeystorePath != null && !releaseKeystorePath.isEmpty() && file(releaseKeystorePath).exists()
+
     signingConfigs {
         debug {
             storeFile file('../keystore/debug.keystore')
@@ -53,12 +61,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
