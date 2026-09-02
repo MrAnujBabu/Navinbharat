@@ -336,8 +336,12 @@ const AdminRoute = forwardRef<unknown, { element: React.ReactElement }>(({ eleme
   const { isAdmin, isLoading, isAuthenticated, roleLoaded } = useAuth();
   // Escape hatch: if the role RPC is paused offline (`networkMode: offlineFirst`
   // pauses fetches without resolving/rejecting), roleLoaded never flips and the
-  // admin sees an infinite spinner. After 6s give up waiting and let the
-  // isAdmin check (which reflects cached role) decide.
+  // admin sees an infinite spinner. After 6s stop waiting -- but FAIL CLOSED.
+  // Previously this fell through to `isAdmin`, which is seeded from the
+  // localStorage role cache (`nb:last_role:<uid>`); a user who edited that key
+  // to "admin" and then went offline (or throttled the RPC) got the admin shell
+  // rendered past the 6s mark. Server RLS still rejected every query, but the
+  // admin surface must not render on a client-tamperable hint. Deny instead.
   const [roleTimedOut, setRoleTimedOut] = useState(false);
   useEffect(() => {
     if (!isAuthenticated || roleLoaded) return;
@@ -345,6 +349,7 @@ const AdminRoute = forwardRef<unknown, { element: React.ReactElement }>(({ eleme
     return () => window.clearTimeout(t);
   }, [isAuthenticated, roleLoaded]);
   if (isLoading || (isAuthenticated && !roleLoaded && !roleTimedOut)) return <PageLoader />;
+  if (isAuthenticated && !roleLoaded) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/login" replace />;
   return element;
 });
