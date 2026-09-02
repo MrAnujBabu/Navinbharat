@@ -11,6 +11,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+// Snapshot 2026-09-02: ratcheted 159 -> 158 after the reader safe-area bands
+// moved to the .nb-safe-band utility.
 // Snapshot 2026-09-01: ratcheted 172 -> 159 after Course.tsx / LessonView.tsx
 // migrated to the semantic --video-scrim / --overlay tokens.
 // Snapshot 2026-07-19: 172 raw text-white / bg-black occurrences across
@@ -20,7 +22,7 @@ import { join } from "node:path";
 // Allowlist by convention (not enforced): src/components/video/*,
 // src/pages/AdminLogin.tsx, src/pages/AdminRegister.tsx,
 // src/components/dashboard/HeroCarousel.tsx.
-const BUDGET = 159;
+const BUDGET = 158;
 
 const PATTERN = /\btext-white\b|\bbg-black\b/;
 const PATHS = ["src/components", "src/pages"];
