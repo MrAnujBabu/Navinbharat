@@ -24,6 +24,8 @@ interface Props {
   docKey?: string;
   /** Soft-keyboard height, so the debug panel never hides behind it. */
   keyboardInset?: number;
+  /** Landscape readers hide the page chip so it never covers page text. */
+  showPageChip?: boolean;
 }
 
 /**
@@ -41,6 +43,7 @@ export default function ReaderOverlays({
   pinned,
   docKey,
   keyboardInset = 0,
+  showPageChip = true,
 }: Props): JSX.Element {
   return (
     <>
@@ -52,7 +55,9 @@ export default function ReaderOverlays({
         visible={visible}
         docKey={docKey}
       />
-      <PageIndicatorPill targetRef={targetRef} iframeRef={iframeRef} pinned={pinned} />
+      {showPageChip && (
+        <PageIndicatorPill targetRef={targetRef} iframeRef={iframeRef} pinned={pinned} />
+      )}
       {readerDebugEnabled() && (
         <Suspense fallback={null}>
           <ReaderDebugPanel keyboardInset={keyboardInset} />
