@@ -55,7 +55,11 @@ echo ""
 echo "🤖 Building Debug APK (this can take a few minutes)..."
 ( cd android && ./gradlew assembleDebug --no-daemon --parallel --build-cache )
 
-APK="android/app/build/outputs/apk/debug/app-debug.apk"
+OUT="android/app/build/outputs/apk/debug"
+# CI renames the Gradle output to the product name; a plain local
+# `./gradlew assembleDebug` still leaves app-debug.apk. Accept either.
+APK="$OUT/Naveen-Bharat.apk"
+[ -f "$APK" ] || APK="$OUT/app-debug.apk"
 if [ -f "$APK" ]; then
   SIZE=$(du -sh "$APK" | cut -f1)
   echo ""
