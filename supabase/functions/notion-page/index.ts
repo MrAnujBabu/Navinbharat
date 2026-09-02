@@ -8,6 +8,7 @@
 // Endpoint: GET /notion-page?id=<pageId-with-or-without-hyphens>
 import { NotionAPI } from "https://esm.sh/notion-client@7.1.5";
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const PAGE_ID_RE = /^[0-9a-f]{32}$/i;
 
@@ -25,6 +26,42 @@ Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // This endpoint is intentionally anonymous (it only proxies pages the operator
+  // has already published publicly), but each call fans out to Notion for a
+  // recordMap plus backfill/collection passes. Without a throttle any anonymous
+  // caller could burn the project's Notion quota and edge compute budget.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (supabaseUrl && serviceKey) {
+    const ip =
+      req.headers.get("cf-connecting-ip") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    try {
+      const admin = createClient(supabaseUrl, serviceKey, {
+        auth: { persistSession: false },
+      });
+      const { data: allowed, error: rlErr } = await admin.rpc(
+        "check_rate_limit_text",
+        { _bucket: "notion_page", _identifier: ip, _max: 30, _window_seconds: 60 },
+      );
+      if (rlErr) {
+        console.warn("[notion-page] rate-limit rpc failed", rlErr);
+      } else if (allowed === false) {
+        return new Response(JSON.stringify({ error: "rate_limited" }), {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("[notion-page] rate-limit threw", e);
+    }
   }
 
   try {
