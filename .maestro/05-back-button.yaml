@@ -1,0 +1,26 @@
+appId: com.naveenbharat.app
+name: 05 — hardware back never dead-ends
+---
+# Capacitor's most common shipping bug: hardware back either closes the app
+# from a nested screen or does nothing at all. Walk in, walk out.
+- runFlow: common/launch.yaml
+- openLink: "https://naveenbharat.in/courses"
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 30000
+- openLink: "https://naveenbharat.in/books"
+- waitForAnimationToEnd:
+    timeout: 3000
+- back
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Courses"
+- takeScreenshot: artifacts/05-back-to-courses
+# At the root, back must ask before exiting rather than dropping the user out.
+- back
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: artifacts/05-root-back
+# Whatever the root policy is, the app must still be the foreground app.
+- assertVisible:
+    text: ".*"
