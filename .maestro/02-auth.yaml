@@ -1,0 +1,33 @@
+appId: com.naveenbharat.app
+name: 02 — student signs in and lands on the dashboard
+tags:
+  - smoke
+env:
+  MAESTRO_EMAIL: ""
+  MAESTRO_PASSWORD: ""
+---
+- runFlow: common/launch.yaml
+- runFlow: common/login.yaml
+# Without credentials the flow still asserts the login surface renders and is
+# interactive, so the suite is useful on forks that have no secrets.
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL == null || MAESTRO_EMAIL == ""}
+    commands:
+      - openLink: "https://naveenbharat.in/login"
+      - extendedWaitUntil:
+          visible: "Welcome Back"
+          timeout: 20000
+      - assertVisible:
+          id: "email"
+      - assertVisible:
+          id: "login-submit"
+      - takeScreenshot: artifacts/02-auth-login-form
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL != null && MAESTRO_EMAIL != ""}
+    commands:
+      - extendedWaitUntil:
+          visible: "Dashboard"
+          timeout: 30000
+      - takeScreenshot: artifacts/02-auth-dashboard
