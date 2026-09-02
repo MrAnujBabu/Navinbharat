@@ -330,6 +330,19 @@ jobs:
           retention-days: 1  # repository maximum
           if-no-files-found: error
 
+      # Visual proof of the landscape white-strip fix: check-apk-boot.sh saves
+      # portrait/landscape screencaps to /tmp/apk-shots during the emulator
+      # smoke. Upload them even when a later step fails so a regression is
+      # inspectable from the run page.
+      - name: Upload rotation screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rotation-screenshots-${{ github.run_number }}
+          path: /tmp/apk-shots/*.png
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Sentry release smoke test
         if: ${{ env.SENTRY_DSN != '' }}
         env:
