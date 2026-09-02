@@ -1,0 +1,23 @@
+appId: com.naveenbharat.app
+name: 06 — offline mode shows the offline surface, not a white screen
+---
+- runFlow: common/launch.yaml
+- assertVisible: "Courses"
+# Cut the network at the device level, then force a data-backed screen.
+- setAirplaneMode: enabled
+- openLink: "https://naveenbharat.in/courses"
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: artifacts/06-offline
+# The app must render *something* it owns — never a blank WebView or the
+# Chrome "ERR_INTERNET_DISCONNECTED" interstitial.
+- assertNotVisible: "ERR_INTERNET_DISCONNECTED"
+- assertNotVisible: "net::ERR"
+- assertNotVisible: "webpage not available"
+- setAirplaneMode: disabled
+- waitForAnimationToEnd:
+    timeout: 8000
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 30000
+- takeScreenshot: artifacts/06-back-online
