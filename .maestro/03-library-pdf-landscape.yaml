@@ -1,0 +1,57 @@
+appId: com.naveenbharat.app
+name: 03 — PDF reader survives rotation with no chip and no white strips
+env:
+  MAESTRO_EMAIL: ""
+  MAESTRO_PASSWORD: ""
+---
+# This flow is the regression net for the landscape reader bug fixed in
+# v1.1.13: in landscape the page chip must be hidden and the safe-area bands
+# must be painted by the reader surface, not left as white system strips.
+- runFlow: common/launch.yaml
+- runFlow: common/login.yaml
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL == null || MAESTRO_EMAIL == ""}
+    commands:
+      # No credentials on this runner — the reader is behind auth, so stop
+      # here rather than assert on a login wall and report a false pass.
+      - takeScreenshot: artifacts/03-skipped-no-credentials
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL != null && MAESTRO_EMAIL != ""}
+    commands:
+      - openLink: "https://naveenbharat.in/downloads"
+      - extendedWaitUntil:
+          visible: "My Downloads"
+          timeout: 30000
+      - tapOn: "My Library"
+      - extendedWaitUntil:
+          visible: ".*\\.pdf.*"
+          timeout: 20000
+      - tapOn: ".*\\.pdf.*"
+      - extendedWaitUntil:
+          visible:
+            id: "doc-reader-shell"
+          timeout: 30000
+      - takeScreenshot: artifacts/03-reader-portrait
+
+      - setOrientation: LANDSCAPE_LEFT
+      - waitForAnimationToEnd:
+          timeout: 3000
+      # The page chip ("12 / 340") is portrait-only chrome.
+      - assertNotVisible: "^\\d+ ?/ ?\\d+$"
+      # Bands exist in the hierarchy and are painted by the reader surface;
+      # if the native strips came back these nodes are gone/zero-height.
+      - assertVisible:
+          id: "reader-notch-band-left"
+      - assertVisible:
+          id: "reader-notch-band-right"
+      - takeScreenshot: artifacts/03-reader-landscape
+
+      - setOrientation: PORTRAIT
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - assertVisible:
+          id: "doc-reader-shell"
+      - takeScreenshot: artifacts/03-reader-portrait-restored
+      - back
