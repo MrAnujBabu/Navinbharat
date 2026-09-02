@@ -1,0 +1,26 @@
+appId: com.naveenbharat.app
+name: common/login
+---
+# Credentials come from the environment (CI repo secrets → MAESTRO env vars).
+# Never inline a real account in YAML.
+- runFlow:
+    when:
+      true: ${MAESTRO_EMAIL != null && MAESTRO_EMAIL != ""}
+    commands:
+      - openLink: "https://naveenbharat.in/login"
+      - extendedWaitUntil:
+          visible: "Welcome Back"
+          timeout: 20000
+      - tapOn:
+          id: "email"
+      - inputText: ${MAESTRO_EMAIL}
+      - hideKeyboard
+      - tapOn:
+          id: "password"
+      - inputText: ${MAESTRO_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: "login-submit"
+      - extendedWaitUntil:
+          notVisible: "Welcome Back"
+          timeout: 30000
