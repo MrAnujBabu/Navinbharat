@@ -5,11 +5,20 @@
 # the device is booted).
 set -euo pipefail
 
-OUT="android/app/build/outputs/apk/debug"
-# CI renames the Gradle output to the product name; a plain local
-# `./gradlew assembleDebug` still leaves app-debug.apk. Accept either.
-APK="$OUT/Naveen-Bharat.apk"
-[ -f "$APK" ] || APK="$OUT/app-debug.apk"
+# CI builds and boots the RELEASE APK (release-only ProGuard/signing damage is
+# exactly what this smoke test must catch). A local `assembleDebug` output is
+# still accepted as a fallback so the script works off-CI.
+APK="${APK_PATH:-}"
+for CANDIDATE in \
+  android/app/build/outputs/apk/release/Naveen-Bharat.apk \
+  android/app/build/outputs/apk/release/app-release.apk \
+  android/app/build/outputs/apk/debug/Naveen-Bharat.apk \
+  android/app/build/outputs/apk/debug/app-debug.apk; do
+  [ -n "$APK" ] && break
+  [ -f "$CANDIDATE" ] && APK="$CANDIDATE"
+done
+APK="${APK:-android/app/build/outputs/apk/release/Naveen-Bharat.apk}"
+echo "==> APK under test: $APK"
 PKG="$(grep -m1 'applicationId' android/app/build.gradle | sed -E 's/.*"(.*)".*/\1/')"
 : "${PKG:?could not read applicationId from android/app/build.gradle}"
 
