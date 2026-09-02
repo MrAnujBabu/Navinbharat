@@ -93,7 +93,7 @@ TableSkeleton.displayName = "TableSkeleton";
  * Inline loading spinner with timeout message
  */
 export const LoadingSpinner = memo(({ 
-  message = "Loading...",
+  message = "Load ho raha hai…",
   showRetry = false,
   onRetry 
 }: { 

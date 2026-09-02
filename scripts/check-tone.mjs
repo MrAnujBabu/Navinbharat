@@ -20,17 +20,22 @@ const CEILING_EXEMPT = new Set([
 // Ceilings — each pattern MAY appear this many times globally. Lower over time.
 // Set to 0 for anything we consider permanently banned.
 const RULES = [
-  { name: "Loading...",         re: /"Loading\.\.\."/g,                    ceiling: 3 },
-  { name: "Please wait",        re: /"Please wait/g,                        ceiling: 2 },
-  { name: "Something went wrong", re: /"Something went wrong/g,             ceiling: 2 },
+  { name: "Loading...",         re: /"Loading\.\.\."/g,                    ceiling: 0 },
+  { name: "Please wait",        re: /"Please wait/g,                        ceiling: 0 },
+  { name: "Something went wrong", re: /"Something went wrong/g,             ceiling: 0 },
   { name: "Oops",               re: /"Oops!/g,                              ceiling: 0 },
   { name: "successfully!",      re: /successfully!"/g,                      ceiling: 0 },
   { name: "Awesome",            re: /"Awesome[!.]/g,                        ceiling: 0 },
   { name: "Amazing",            re: /"Amazing[!.]/g,                        ceiling: 0 },
   { name: "Woohoo",             re: /"Woohoo/g,                             ceiling: 0 },
-  // Sparkles as a component/JSX tag (not the import line itself)
-  { name: "<Sparkles ",         re: /<Sparkles[\s/>]/g,                     ceiling: 4 },
+  // Sparkles is banned outright as an AI-identity mark (icon or import).
+  { name: "Sparkles icon",      re: /\bSparkles\b/g,                        ceiling: 0 },
+  // Marketing filler adjectives inside user-facing strings.
+  { name: "filler adjectives",  re: /"[^"\n]*\b(seamless|effortless|Empowering|Revolutioniz\w*|Unlock your|Elevate your)\b/gi, ceiling: 0 },
+  // Vague dialog/CTA labels — buttons must name the outcome.
+  { name: "vague CTA labels",   re: />\s*(Yes|No|OK|Okay|Submit|Confirm|Click here)\s*</g, ceiling: 0 },
 ];
+
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {

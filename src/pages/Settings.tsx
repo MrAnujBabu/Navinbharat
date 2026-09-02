@@ -169,7 +169,7 @@ const Settings = () => {
       }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Password changed successfully!");
+      toast.success("Password changed");
       setShowPasswordDialog(false);
       setNewPassword("");
       setConfirmPassword("");

@@ -566,7 +566,7 @@ const AdminQuizManager = () => {
         <header className="bg-card border-b px-4 py-4 sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
           <div className="flex items-center gap-3 max-w-2xl mx-auto">
             <button onClick={() => setView("list")} className="text-muted-foreground hover:text-foreground p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </button>
             <h1 className="text-base font-bold flex-1">Create New Quiz</h1>
           </div>
@@ -674,7 +674,7 @@ const AdminQuizManager = () => {
             onClick={() => { setView("list"); setEditingQuizId(null); }}
             className="text-muted-foreground hover:text-foreground p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded shrink-0"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </button>
           <h1 className="text-base font-bold flex-1 truncate">Edit Questions</h1>
           <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">{questionForms.length} questions</span>

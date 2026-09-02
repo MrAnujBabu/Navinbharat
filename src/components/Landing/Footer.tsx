@@ -1,6 +1,6 @@
 import { useMemo, forwardRef } from "react";
 import { Link } from "react-router-dom";
-import { Mail, Phone, Shield, ArrowUpRight, Sparkles, Youtube, Send } from "lucide-react";
+import { Mail, Phone, Shield, ArrowUpRight, Target, Youtube, Send } from "lucide-react";
 import logoIcon from "../../assets/branding/nb-badge.webp";
 import { WHATSAPP_NUMBER } from "../common/WhatsAppButton";
 import { TELEGRAM_URL, YOUTUBE_URL } from "@/config/socialLinks";
@@ -70,7 +70,7 @@ const Footer = forwardRef<HTMLElement>((_, ref) => {
         <div className="container mx-auto max-w-7xl px-6 lg:px-10 py-10 md:py-12 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-secondary-foreground/60 mb-3">
-              <Sparkles className="h-3 w-3" /> Learn with intent
+              <Target className="h-3 w-3" /> Learn with intent
             </div>
             <h3
               className="text-2xl md:text-3xl leading-tight"

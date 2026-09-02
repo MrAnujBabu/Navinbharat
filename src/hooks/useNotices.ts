@@ -121,7 +121,7 @@ export const useNotices = () => {
         pdf_url: input.pdfUrl || null,
       });
       if (dbError) throw dbError;
-      toast.success("Notice created successfully!");
+      toast.success("Notice created");
       invalidate();
       return true;
     } catch (err) {
@@ -151,7 +151,7 @@ export const useNotices = () => {
         .update(updateData)
         .eq("id", id);
       if (dbError) throw dbError;
-      toast.success("Notice updated successfully!");
+      toast.success("Notice updated");
       invalidate();
       return true;
     } catch (err) {
@@ -169,7 +169,7 @@ export const useNotices = () => {
         .delete()
         .eq("id", id);
       if (dbError) throw dbError;
-      toast.success("Notice deleted successfully!");
+      toast.success("Notice deleted");
       invalidate();
       return true;
     } catch (err) {

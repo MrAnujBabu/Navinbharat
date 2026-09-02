@@ -97,7 +97,7 @@ const AdminSchedule = () => {
       <div className="bg-primary px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="text-primary-foreground hover:bg-primary-foreground/10">
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-lg font-semibold text-primary-foreground">Lectures Schedule</h1>
         </div>

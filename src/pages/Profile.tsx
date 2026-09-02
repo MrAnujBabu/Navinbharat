@@ -79,7 +79,7 @@ const Profile = () => {
       const { error } = await supabase
         .from('profiles').update({ full_name: nameInput, mobile: mobileInput }).eq('id', profile.id);
       if (error) throw error;
-      toast.success("Profile updated successfully!");
+      toast.success("Profile saved");
       setProfile({ ...profile, full_name: nameInput, mobile: mobileInput });
       setIsEditing(false);
       await refetchUserData();

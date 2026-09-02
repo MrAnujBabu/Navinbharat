@@ -597,7 +597,7 @@ const DocumentReader = memo(
             aria-label="Go back"
             className="min-h-[44px] min-w-[44px]"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold text-foreground line-clamp-1">{title}</h1>
@@ -754,7 +754,7 @@ const DocumentReader = memo(
             chromeVisible ? "opacity-0 pointer-events-none" : "opacity-100"
           )}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </button>
       </div>
     );

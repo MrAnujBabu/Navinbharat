@@ -17,7 +17,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "..
 import {
   ArrowLeft, Play, Lock, Clock,
   FileText, MessageCircle, CheckCircle, Send, Library, ImageIcon, X,
-  HelpCircle, ChevronRight, ChevronDown, ChevronUp, Edit2, Save, Sparkles, ListVideo, Loader2, Target, Paperclip, MessageSquare, Star, ThumbsUp, Download, Bookmark as BookmarkIcon, Users, Phone, Mail, Bot, ExternalLink, Share2,
+  HelpCircle, ChevronRight, ChevronDown, ChevronUp, Edit2, Save, ListVideo, Loader2, Target, Paperclip, MessageSquare, Star, ThumbsUp, Download, Bookmark as BookmarkIcon, Users, Phone, Mail, Bot, ExternalLink, Share2,
   Upload as UploadIcon, Link as LinkIcon, Trash2, BookOpen
 } from "lucide-react";
 import { Markdown } from "../components/Markdown";

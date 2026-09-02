@@ -90,7 +90,7 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
             <div className="space-y-2">
               <h2 className="text-xl font-bold text-foreground">
-                {this.props.fallbackTitle || "Something went wrong"}
+                {this.props.fallbackTitle || "Ye screen load nahi ho paayi"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {this.props.fallbackHint ||

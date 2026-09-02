@@ -10,7 +10,7 @@ import {
   CheckCircle2, XCircle, ChevronLeft, Trophy, Clock,
   RotateCcw, ChevronDown, ChevronUp, Lightbulb,
   Bell, BookOpen, BarChart3, Target, TrendingUp,
-  Award, Minus, Zap, Timer, Sparkles, GraduationCap,
+  Award, Minus, Zap, Timer, GraduationCap,
   AlertTriangle, Gauge, Flame, ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -315,7 +315,7 @@ const QuizResult = () => {
   const tips: { icon: LucideIcon; text: string; tone: string }[] = [];
   if (totalQ > 0 && skippedCount / totalQ > 0.3) {
     tips.push({
-      icon: Sparkles,
+      icon: Lightbulb,
       text: `Aap ne ${skippedCount} sawaal skip kiye. Next time thoda risk lo — accuracy achhi hai to attempts badhao.`,
       tone: "text-yellow-500",
     });
@@ -351,7 +351,7 @@ const QuizResult = () => {
   }
   if (tips.length === 0) {
     tips.push({
-      icon: Sparkles,
+      icon: Lightbulb,
       text: `Solid attempt! Consistency banaye rakho — har hafte 2-3 mock lagao.`,
       tone: "text-primary",
     });
@@ -849,7 +849,7 @@ const QuizResult = () => {
               {/* Coach tips */}
               <div className="rounded-2xl border bg-card p-4">
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-2 mb-3">
-                  <Sparkles className="h-4 w-4 text-primary" />
+                  <Lightbulb className="h-4 w-4 text-primary" />
                   Mentor's Tips
                 </h4>
                 <ul className="space-y-2.5">

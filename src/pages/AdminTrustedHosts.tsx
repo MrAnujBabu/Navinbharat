@@ -166,7 +166,7 @@ export default function AdminTrustedHosts() {
         <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 max-w-6xl mx-auto w-full">
           <div className="flex flex-wrap items-start gap-2 sm:gap-3 mb-6">
             <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="shrink-0">
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 min-w-0 order-2 sm:order-none basis-full sm:basis-0">
               <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 break-words">

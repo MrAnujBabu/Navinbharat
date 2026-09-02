@@ -264,7 +264,7 @@ export default function SmartNotesReader({ markdown, title, onBack, onDownload, 
         onClick={(e) => e.stopPropagation()}
       >
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back">
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <EditableTitle
           value={note?.title || title}

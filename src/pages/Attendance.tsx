@@ -131,7 +131,7 @@ const Attendance = () => {
       const { error } = await supabase.from("attendance").insert(records);
       if (error) throw error;
 
-      toast.success("Attendance submitted successfully!");
+      toast.success("Attendance marked");
       navigate("/dashboard");
     } catch (error: unknown) {
       logger.error("Attendance submission error", error);
@@ -152,7 +152,7 @@ const Attendance = () => {
 
       <div className="bg-primary px-4 py-4 flex items-center gap-3">
         <Button aria-label="Back to dashboard" variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-primary-foreground hover:bg-primary-foreground/10">
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-lg font-semibold text-primary-foreground">Attendance</h1>
       </div>

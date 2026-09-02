@@ -623,7 +623,7 @@ const Admin = () => {
     <div className="min-h-dvh bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">{loadTimeout ? "Taking longer than expected..." : "Loading..."}</p>
+          <p className="text-muted-foreground">{loadTimeout ? "Thoda time lag raha hai…" : "Dashboard load ho raha hai…"}</p>
           {loadTimeout && <button onClick={() => window.location.reload()} className="mt-4 text-primary hover:underline text-sm font-medium">Refresh Page</button>}
         </div>
       </div>

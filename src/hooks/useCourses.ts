@@ -153,7 +153,7 @@ export const useCourses = () => {
         .single();
 
       if (dbError) throw dbError;
-      toast.success("Course created successfully!");
+      toast.success("Course created");
       invalidateCache(CACHE_KEY); await fetchCourses(true);
       return mapCourse(data);
     } catch (err: unknown) {
@@ -179,7 +179,7 @@ export const useCourses = () => {
         .eq("id", id);
 
       if (dbError) throw dbError;
-      toast.success("Course updated successfully!");
+      toast.success("Course updated");
       invalidateCache(CACHE_KEY); await fetchCourses(true);
       return true;
     } catch (err: unknown) {
@@ -197,7 +197,7 @@ export const useCourses = () => {
         .eq("id", id);
 
       if (dbError) throw dbError;
-      toast.success("Course deleted successfully!");
+      toast.success("Course deleted");
       invalidateCache(CACHE_KEY); await fetchCourses(true);
       return true;
     } catch (err: unknown) {

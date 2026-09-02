@@ -26,9 +26,10 @@
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
     "guard:tokens": "node scripts/check-design-tokens.mjs",
+    "guard:tone": "node scripts/check-tone.mjs",
     "guard:node": "node scripts/check-node-pin.mjs",
     "guard:console": "node scripts/check-console-usage.mjs",
-    "guard:all": "node scripts/check-node-pin.mjs && node scripts/check-design-tokens.mjs && node scripts/check-console-usage.mjs && node scripts/check-deep-links.mjs",
+    "guard:all": "node scripts/check-node-pin.mjs && node scripts/check-design-tokens.mjs && node scripts/check-tone.mjs && node scripts/check-console-usage.mjs && node scripts/check-deep-links.mjs",
     "typecheck": "tsgo --noEmit -p tsconfig.app.json"
   },
   "dependencies": {

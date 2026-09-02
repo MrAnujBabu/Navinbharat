@@ -575,7 +575,7 @@ const AdminUpload = () => {
         setUploadingAttachments(false);
       }
 
-      toast.success("Content uploaded successfully!");
+      toast.success("Content uploaded");
       setTitle(""); setVideoUrl(""); setPdfFile(null); setPdfUrl(""); setDescription(""); setOverviewText(""); setTranscriptMd(""); setClassPdfFile(null); setClassPdfUrl(""); setPdfAttachments([]); setThumbnailUrl(""); setVideoFile(null); setThumbnailFile(null); setVideoUploadProgress(0);
       const { data } = await supabase.from('lessons').select('*')
         .eq('chapter_id', selectedChapterId).order('position', { ascending: true });

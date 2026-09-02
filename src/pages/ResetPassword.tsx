@@ -78,7 +78,7 @@ const ResetPassword = () => {
       if (error) throw error;
 
       setIsSuccess(true);
-      toast.success("Password updated successfully!");
+      toast.success("Password updated");
 
       // Redirect to login after 3 seconds
       setTimeout(() => {

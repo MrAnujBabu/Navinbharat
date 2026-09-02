@@ -110,7 +110,7 @@ const Students = () => {
 
       <div className="bg-primary px-4 py-4 flex items-center gap-3">
         <Button aria-label="Back to dashboard" variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-primary-foreground hover:bg-primary-foreground/10">
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-lg font-semibold text-primary-foreground">Students</h1>
       </div>
@@ -131,7 +131,7 @@ const Students = () => {
         </div>
 
         <div className="px-4 py-2 bg-muted/30 border-b border-border">
-          <p className="text-sm text-muted-foreground">{loading ? "Loading..." : `${filteredStudents.length} enrolled students found`}</p>
+          <p className="text-sm text-muted-foreground">{loading ? "Students load ho rahe hain…" : `${filteredStudents.length} enrolled students found`}</p>
         </div>
 
         <div className="flex-1 overflow-hidden p-4">

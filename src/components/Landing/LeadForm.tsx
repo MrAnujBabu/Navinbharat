@@ -42,7 +42,7 @@ const LeadForm = memo(() => {
       setFormData({ studentName: "", email: "", grade: "" });
     } catch (error) {
       reportError(error, { surface: "LeadForm.submit" });
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Form submit nahi ho paaya — dobara try karo.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

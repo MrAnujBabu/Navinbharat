@@ -98,7 +98,7 @@ export const useMessages = () => {
 
       if (insertError) throw insertError;
 
-      toast.success("Message sent successfully!");
+      toast.success("Message sent");
       await fetchMessages();
       return true;
     } catch (err) {

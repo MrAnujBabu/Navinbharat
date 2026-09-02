@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { reportError } from "@/lib/sentry";
 import { Button } from "../ui/button";
-import { Sparkles, Loader2, ChevronDown, ChevronUp, Copy, CheckCircle2, Brain, Globe, Eye, EyeOff } from "lucide-react";
+import { Wand2, Loader2, ChevronDown, ChevronUp, Copy, CheckCircle2, Brain, Globe, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../../integrations/supabase/client";
 import { toast } from "sonner";
 import { Markdown } from "../Markdown";
@@ -23,7 +23,7 @@ interface Source {
 
 const MODE_CONFIG = {
   summary: {
-    icon: Sparkles,
+    icon: Wand2,
     label: "Summary",
     loading: "Analyzing lecture content...",
     color: "text-primary",
@@ -138,7 +138,7 @@ const VideoSummarizer = ({ videoUrl, lessonTitle, lessonId, lessonDescription, l
       >
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <Wand2 className="h-4 w-4 text-primary" />
           </div>
           <div className="text-left">
             <p className="text-sm font-bold text-foreground">Naveen Bharat Agent</p>

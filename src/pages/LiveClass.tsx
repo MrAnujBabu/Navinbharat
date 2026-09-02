@@ -13,7 +13,7 @@ import RaiseHandButton from "../components/live/RaiseHandButton";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
-import { Eye, ArrowLeft, Radio, MessageCircle, HelpCircle, Sparkles } from "lucide-react";
+import { Eye, ArrowLeft, Radio, MessageCircle, HelpCircle, Bot } from "lucide-react";
 
 interface LiveSession {
   id: string;
@@ -190,7 +190,7 @@ const LiveClass = () => {
                 <HelpCircle className="h-3 w-3" /> Doubts
               </TabsTrigger>
               <TabsTrigger value="sarthi" className="gap-1 text-[11px]">
-                <Sparkles className="h-3 w-3" /> Sarthi
+                <Bot className="h-3 w-3" /> Sarthi
               </TabsTrigger>
             </TabsList>
             <TabsContent value="chat" className="flex-1 mt-0 overflow-hidden">

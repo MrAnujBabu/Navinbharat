@@ -15,7 +15,7 @@ import {
   Link,
   Save,
   FileText,
-  Sparkles,
+  Wand2,
   Loader2,
   CheckCircle,
   AlertCircle
@@ -284,7 +284,7 @@ const ObsidianNotes: React.FC<ObsidianNotesProps> = ({
               onClick={autoGenerateNotes}
               className="gap-1"
             >
-              <Sparkles className="w-4 h-4" />
+              <Wand2 className="w-4 h-4" />
               <span className="hidden sm:inline">Template</span>
             </Button>
             <Button

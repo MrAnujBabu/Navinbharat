@@ -385,7 +385,7 @@ const Messages = () => {
               {/* Chat Header */}
               <div className="p-3 border-b border-border flex items-center gap-3 bg-card">
                 <Button aria-label="Back to contacts" variant="ghost" size="icon" className="sm:hidden" onClick={() => setSelectedContact(null)}>
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={selectedContact.avatarUrl || undefined} />

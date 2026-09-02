@@ -608,7 +608,7 @@ export default function DocReaderShell({
             aria-label="Back"
             className="h-11 w-11 active:scale-[0.94] transition-transform duration-150 ease-out"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h1>
           {showAddToLibrary && (

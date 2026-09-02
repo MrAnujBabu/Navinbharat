@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ScrollArea } from "../ui/scroll-area";
-import { Send, Sparkles, RotateCcw, Copy } from "lucide-react";
+import { Send, Bot, RotateCcw, Copy } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -117,7 +117,7 @@ const LiveSarthiPanel = ({ sessionId, sessionTitle, sessionDescription, courseTi
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 bg-primary/5">
-        <Sparkles className="h-4 w-4 text-primary" />
+        <Bot className="h-4 w-4 text-primary" />
         <span className="text-xs font-semibold text-foreground">Sarthi AI • Live Doubt Solver</span>
       </div>
 
@@ -166,7 +166,7 @@ const LiveSarthiPanel = ({ sessionId, sessionTitle, sessionDescription, courseTi
           ))}
           {busy && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+              <Bot className="h-3 w-3 animate-pulse text-primary" />
               Sarthi soch raha hai...
             </div>
           )}

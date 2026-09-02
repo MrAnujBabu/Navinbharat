@@ -46,7 +46,7 @@ const Timetable = () => {
           onClick={() => navigate("/dashboard")}
           className="text-primary-foreground hover:bg-primary-foreground/10"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-lg font-semibold text-primary-foreground">Timetable</h1>
       </div>

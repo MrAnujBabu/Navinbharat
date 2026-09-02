@@ -217,7 +217,7 @@ export const AskDoubtSheet = ({
             aria-label="Close doubts"
             className="h-11 w-11 -ml-2 rounded-full inline-flex items-center justify-center text-foreground hover:bg-accent/40 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-foreground leading-tight truncate">
