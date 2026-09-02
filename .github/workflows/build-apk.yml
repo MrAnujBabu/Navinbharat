@@ -135,6 +135,17 @@ jobs:
             || { echo "::error::KEYSTORE_PASSWORD does not open the keystore"; exit 1; }
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1 \
             || { echo "::error::KEY_ALIAS is not present in the keystore"; exit 1; }
+          # PKCS12 keystores protect entries with the *store* password; keytool
+          # silently accepts any -keypass there, but Gradle passes it straight to
+          # the JCE and fails with "Given final block not properly padded".
+          TYPE=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                 | sed -n 's/^Keystore type: //p' | head -1)
+          echo "Keystore type: ${TYPE:-unknown}"
+          if [ "$TYPE" = "PKCS12" ] || [ "$TYPE" = "pkcs12" ]; then
+            echo "PKCS12 keystore -> key password must equal the store password"
+            echo "RESOLVED_KEY_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            exit 0
+          fi
           probe() {
             keytool -certreq -alias "$KEY_ALIAS" -keystore "$KEYSTORE_PATH" \
               -storepass "$KEYSTORE_PASSWORD" -keypass "$1" >/dev/null 2>&1
