@@ -680,9 +680,9 @@ const BuyCourse = () => {
                     </div>
                   ) : (
                     <Button
-                      onClick={() => { void handleRazorpayPayment(); }}
+                      onClick={() => { void tapMedium(); void handleRazorpayPayment(); }}
                       disabled={isRazorpayLoading}
-                      className="h-12 w-full text-base font-semibold"
+                      className="h-12 w-full text-base font-semibold transition-transform duration-150 ease-out active:scale-[0.97] active:opacity-90"
                     >
                       {isRazorpayLoading ? (
                         <>
