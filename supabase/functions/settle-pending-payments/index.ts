@@ -11,7 +11,8 @@
  * a payment was actually captured, re-validate the amount against our own DB
  * row, and only then call the idempotent `complete_paid_enrollment` RPC.
  *
- * Auth: shared secret in `x-sweep-secret`, compared in constant time. There is
+ * Auth: shared secret in `x-sweep-secret`, verified against Supabase Vault via
+ * a service_role-only SQL function. There is
  * no CORS surface — this is a server-to-server endpoint.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -33,16 +34,6 @@ interface RazorpayPaymentItem {
   amount?: number;
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const left = enc.encode(a);
-  const right = enc.encode(b);
-  if (left.length !== right.length) return false;
-  let diff = 0;
-  for (let i = 0; i < left.length; i++) diff |= left[i]! ^ right[i]!;
-  return diff === 0;
-}
-
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -51,17 +42,26 @@ Deno.serve(async (req) => {
     });
   }
 
-  const sweepSecret = Deno.env.get("PAYMENT_SWEEP_SECRET");
-  if (!sweepSecret) {
-    console.error("PAYMENT_SWEEP_SECRET not configured — sweeper disabled");
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  // The shared secret lives only in Supabase Vault — never mirrored into an
+  // env var. The DB verifies it through a service_role-only SQL function.
+  const provided = req.headers.get("x-sweep-secret") ?? "";
+  const { data: secretOk, error: verifyError } = await supabaseAdmin.rpc(
+    "verify_sweep_secret",
+    { _secret: provided },
+  );
+  if (verifyError) {
+    console.error("Sweep secret verification failed:", verifyError.message);
     return new Response(JSON.stringify({ error: "Not configured" }), {
       status: 503,
       headers: jsonHeaders,
     });
   }
-
-  const provided = req.headers.get("x-sweep-secret") ?? "";
-  if (!timingSafeEqual(provided, sweepSecret)) {
+  if (secretOk !== true) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: jsonHeaders,
@@ -77,11 +77,6 @@ Deno.serve(async (req) => {
     });
   }
   const credentials = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
-
-  const supabaseAdmin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
 
   const now = Date.now();
   const { data: rows, error: queryError } = await supabaseAdmin
