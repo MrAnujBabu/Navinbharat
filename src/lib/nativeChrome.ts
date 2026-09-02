@@ -100,6 +100,12 @@ export async function setStatusBarBackground(color: string): Promise<void> {
 export async function applyStatusBarForTheme(theme: "light" | "dark") {
   const Capacitor = await getCapacitor();
   if (!Capacitor?.isNativePlatform?.()) return;
+  // A theme flip (or app boot) while the PDF reader owns the system bars must
+  // not reset overlay mode — `setOverlaysWebView({ overlay: false })` makes
+  // Android reserve a status-bar strip again, which is painted with the light
+  // theme colour above the black reader. Bail out entirely while owned.
+  const { isImmersiveOwned } = await import("./androidImmersive");
+  if (isImmersiveOwned()) return;
   try {
     if (!statusBarMod) statusBarMod = await import("@capacitor/status-bar");
     const { StatusBar, Style } = statusBarMod;
