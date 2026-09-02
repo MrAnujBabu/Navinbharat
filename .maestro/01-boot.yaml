@@ -1,0 +1,17 @@
+appId: com.naveenbharat.app
+name: 01 — cold boot renders the landing page
+tags:
+  - smoke
+---
+- runFlow: common/launch.yaml
+- assertVisible: "Courses"
+- assertVisible: "Login"
+- takeScreenshot: artifacts/01-boot-landing
+# Backgrounding and resuming is where Capacitor apps most often white-screen.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Courses"
+    timeout: 20000
+- takeScreenshot: artifacts/01-boot-resume
