@@ -88,7 +88,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -162,7 +162,7 @@ jobs:
         with:
           name: naveen-bharat-apk-${{ env.APP_VERSION_NAME }}-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          retention-days: 1  # repository maximum
           if-no-files-found: error
 
       - name: Sentry release smoke test
