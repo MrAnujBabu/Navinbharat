@@ -94,6 +94,24 @@ export default function DocReaderShell({
   }, []);
   const sheetMetrics = notesSheetMetrics(viewportHeight, keyboardInset);
 
+  /** True whenever the reader is actually wider than tall (real device rotation
+      or our CSS pseudo-rotation). Landscape hides the floating page chip and
+      needs black bands on the left/right notch gutters instead of the top. */
+  const [viewportLandscape, setViewportLandscape] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth > window.innerHeight,
+  );
+  useEffect(() => {
+    const sync = () => setViewportLandscape(window.innerWidth > window.innerHeight);
+    sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
+  }, []);
+  const landscapeActive = pseudoLandscape || viewportLandscape || landscape;
+
 
 
   const [initialPage, setInitialPage] = useState<number | undefined>(undefined);
@@ -509,14 +527,34 @@ export default function DocReaderShell({
 
   return (
     <div ref={shellRef} className="nb-reader-surface fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150" data-testid="doc-reader-shell">
-      {/* Opaque band behind the status bar / notch. Without it a white strip
-          from the page background bleeds through above the PDF (browser and
-          Capacitor WebView alike). Not inside the rotation frame on purpose. */}
+      {/* Opaque bands behind every safe-area gutter. Only the top band existed
+          before, so in landscape the notch/pill moved to the LEFT edge and the
+          gesture bar to the RIGHT — both showed as white strips beside the PDF
+          in the Capacitor WebView. Cover all four gutters; each collapses to
+          0px when its inset is 0. Not inside the rotation frame on purpose. */}
       <div
         aria-hidden="true"
         data-testid="reader-notch-band"
         className="pointer-events-none fixed inset-x-0 top-0 z-[75] bg-black"
         style={{ height: "env(safe-area-inset-top, 0px)" }}
+      />
+      <div
+        aria-hidden="true"
+        data-testid="reader-notch-band-bottom"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] bg-black"
+        style={{ height: "env(safe-area-inset-bottom, 0px)" }}
+      />
+      <div
+        aria-hidden="true"
+        data-testid="reader-notch-band-left"
+        className="pointer-events-none fixed inset-y-0 left-0 z-[75] bg-black"
+        style={{ width: "env(safe-area-inset-left, 0px)" }}
+      />
+      <div
+        aria-hidden="true"
+        data-testid="reader-notch-band-right"
+        className="pointer-events-none fixed inset-y-0 right-0 z-[75] bg-black"
+        style={{ width: "env(safe-area-inset-right, 0px)" }}
       />
       {/* Center column — this is also the pseudo-landscape rotation frame, so
           header, PDF surface, FABs and the page chip all rotate together. */}
@@ -686,6 +724,9 @@ export default function DocReaderShell({
           iframeRef={iframeElRef}
           docKey={itemId || url}
           bottomOffset={hideDownload ? 96 : 84}
+          // Landscape is the reading posture: the floating page chip sat over
+          // the page text on the short edge, so hide it entirely there.
+          showPageChip={!landscapeActive}
           visible={headerVisible || autoActive}
           onActiveChange={(a) => {
             setAutoActive(a);
