@@ -184,6 +184,7 @@ const RELAYABLE_HOSTS = [
   /(^|\.)googleusercontent\.com$/i,
   /(^|\.)archive\.org$/i,
   /^prod-recordings\.vedantu\.com$/i,
+  /(^|\.)crwilladmin\.com$/i,
   // Google Drive / Docs and Notion have dedicated proxy routes.
   /(^|\.)drive\.google\.com$/i,
   /(^|\.)docs\.google\.com$/i,

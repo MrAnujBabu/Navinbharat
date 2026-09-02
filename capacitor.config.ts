@@ -45,6 +45,8 @@ const config: CapacitorConfig = {
       // Archive.org (books)
       'archive.org',
       '*.archive.org',
+      // CRW-Willa batch-notes object storage (range-streamable, CORS-open)
+      '*.crwilladmin.com',
       // jsDelivr for pdf.js worker
       'cdn.jsdelivr.net',
       // NOTE: Supabase hosts removed — API calls go via fetch(), not WebView

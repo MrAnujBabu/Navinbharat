@@ -16,6 +16,7 @@ import {
   isGithubStoragesCdn,
   isNaveenBharatStorage,
   isVedantuRecordings,
+  isCrwMedia,
   renderablePdfUrl,
   resolveEmbedUrl,
   extractDriveFileId,
@@ -185,5 +186,28 @@ describe("Universal document link support (7 types)", () => {
     const embed = resolveEmbedUrl(vedantu);
     expect(embed.embedUrl).toContain("/pdfjs/web/viewer.html");
     expect(decodeURIComponent(embed.embedUrl)).toContain("pdf-proxy");
+  });
+
+  it("renders CRW-Willa batch notes directly (CORS-open, range-streamable)", () => {
+    const crw =
+      "https://cwmediabkt99.crwilladmin.com/92013a99927c4842b0a70fbd6f064a95:crwilladmin/batch-notes/1787682600/6a8eebd68dcae_Achiever_Course_Planner.pdf";
+    expect(isCrwMedia(crw)).toBe(true);
+    expect(isKnownNonPdfWebUrl(crw)).toBe(false);
+    expect(isLikelyPdfUrl(crw)).toBe(true);
+    // Direct bytes — no proxy hop, so the first page paints without a relay.
+    expect(renderablePdfUrl(crw)).toBe(crw);
+    const embed = resolveEmbedUrl(crw);
+    expect(embed.embedUrl).toContain("/pdfjs/web/viewer.html");
+    expect(decodeURIComponent(embed.embedUrl)).toContain("crwilladmin.com");
+    expect(embed.isDrive).toBe(false);
+    // Proxy fallback is still a legal, well-formed candidate.
+    expect(decodeURIComponent(remotePdfProxyUrl(crw))).toContain("kind=url");
+  });
+
+  it("does not match hosts that only look like crwilladmin.com", () => {
+    expect(isCrwMedia("https://crwilladmin.com.attacker.io/x.pdf")).toBe(false);
+    expect(isCrwMedia("https://notcrwilladmin.com/x.pdf")).toBe(false);
+    expect(isCrwMedia("https://crwilladmin.com/x.pdf")).toBe(true);
+    expect(isCrwMedia("not a url")).toBe(false);
   });
 });

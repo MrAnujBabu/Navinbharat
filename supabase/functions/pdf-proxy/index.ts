@@ -381,6 +381,10 @@ function cacheDriveBodyInBackground(driveId: string, bodyStream: ReadableStream<
 // ---------------------------------------------------------------------------
 const CACHEABLE_REMOTE_HOSTS = [
   /^prod-recordings\.vedantu\.com$/i,
+  // CRW-Willa batch notes: content-hashed, immutable object paths behind
+  // Cloudflare. Caching the first proxied fetch turns later opens into a
+  // signed Supabase CDN 302 with native Range support.
+  /(^|\.)crwilladmin\.com$/i,
 ];
 
 function isCacheableRemote(url: string): boolean {
@@ -887,6 +891,10 @@ const ALLOWED_HOSTS = [
   // immutable object URLs) — no CORS headers upstream, so the bytes must be
   // relayed. Exact host only; the rest of vedantu.com stays untrusted.
   /^prod-recordings\.vedantu\.com$/i,
+  // CRW-Willa batch-notes object storage (Ceph/RGW behind Cloudflare).
+  // Range-streamable and CORS-open, so the client renders it directly; this
+  // entry only keeps the proxy fallback (and redirect re-validation) legal.
+  /(^|\.)crwilladmin\.com$/i,
 ];
 
 /**

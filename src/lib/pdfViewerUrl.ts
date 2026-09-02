@@ -195,6 +195,31 @@ export const isVedantuRecordings = (url: string): boolean => {
   }
 };
 
+/**
+ * CRW-Willa batch-notes object storage — e.g.
+ * `https://cwmediabkt99.crwilladmin.com/<tenant>:crwilladmin/batch-notes/<id>/<file>.pdf`.
+ *
+ * Verified upstream behaviour (Range probe): HTTP 206 with a real
+ * `content-range`, `content-type: application/pdf`, and
+ * `access-control-allow-origin: *`. Both byte-range streaming and CORS are
+ * correct, so pdf.js can fetch these bytes DIRECTLY — no proxy hop, no extra
+ * round trip, first page paints as fast as a local file. The proxy stays
+ * available as a fallback (see pdf-proxy ALLOWED_HOSTS) for the rare object
+ * whose CORS header is missing.
+ *
+ * Suffix match on the parsed hostname, never a substring test, so
+ * `crwilladmin.com.attacker.io` does NOT match.
+ */
+export const isCrwMedia = (url: string): boolean => {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "crwilladmin.com" || host.endsWith(".crwilladmin.com");
+  } catch {
+    return false;
+  }
+};
+
+
 export const hasPdfPath = (url: string): boolean => {
   try {
     return /\.pdf$/i.test(new URL(url).pathname);
