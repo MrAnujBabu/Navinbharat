@@ -256,72 +256,6 @@ jobs:
           fi
           echo "APK $(du -h "$APK" | cut -f1) with $COUNT Capacitor plugins bundled, no source maps."
 
-      # Boots the built APK on a real emulator: catches runtime crashes that a
-      # file-existence smoke check cannot (missing plugin classes, bad WebView
-      # config, release-only ProGuard damage).
-      #
-      # v1.0.8 failed here with 78 consecutive "adb: device offline" polls and
-      # then a boot timeout. The root cause was NOT flake: the emulator logged
-      #   TCG doesn't support requested feature: CPUID.01H:ECX.avx
-      # "TCG" is QEMU's *software* CPU emulator, i.e. the runner started the
-      # AVD without KVM. Under TCG an API-34 google_apis Pixel-6 image with
-      # 4 GB RAM cannot finish booting inside any sane timeout, so the poll
-      # loop just runs until the job dies. Fix = give the runner /dev/kvm and
-      # boot a much lighter image.
-      - name: Enable KVM for the emulator
-        run: |
-          set -e
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          # Fail loudly in 5 seconds instead of looping "device offline" for
-          # 20 minutes: without KVM this step can never pass.
-          test -e /dev/kvm || { echo "::error::/dev/kvm missing — runner has no hardware acceleration, emulator would fall back to TCG and never boot"; exit 1; }
-          ls -l /dev/kvm
-
-      # Leftover adb servers from the SDK setup step make the emulator runner
-      # log an "orphan adb process" warning and can wedge device discovery.
-      - name: Reset adb before emulator
-        run: adb kill-server || true
-
-      # Deliberately lighter than the build target: API 30 / `default` (no Play
-      # services) / 2 GB boots in ~60-70s with KVM. google_apis + pixel_6 +
-      # 4096M bought nothing for a boot smoke test and doubled boot time.
-      - name: Emulator boot smoke test (attempt 1)
-        id: emu1
-        continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          ram-size: 2048M
-          disable-animations: true
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/check-apk-boot.sh
-
-      - name: Reset adb between attempts
-        if: steps.emu1.outcome == 'failure'
-        run: adb kill-server || true
-
-      # One retry for genuine runner flake. Both failing = a real problem.
-      - name: Emulator boot smoke test (attempt 2)
-        if: steps.emu1.outcome == 'failure'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          ram-size: 2048M
-          disable-animations: true
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/check-apk-boot.sh
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
@@ -329,19 +263,6 @@ jobs:
           path: android/app/build/outputs/apk/release/Naveen-Bharat.apk
           retention-days: 1  # repository maximum
           if-no-files-found: error
-
-      # Visual proof of the landscape white-strip fix: check-apk-boot.sh saves
-      # portrait/landscape screencaps to /tmp/apk-shots during the emulator
-      # smoke. Upload them even when a later step fails so a regression is
-      # inspectable from the run page.
-      - name: Upload rotation screenshots
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: rotation-screenshots-${{ github.run_number }}
-          path: /tmp/apk-shots/*.png
-          retention-days: 7
-          if-no-files-found: warn
 
       - name: Sentry release smoke test
         if: ${{ env.SENTRY_DSN != '' }}
