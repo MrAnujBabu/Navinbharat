@@ -11,7 +11,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // Snapshot 2026-07-19: 141 raw console.* across src/.
-const BUDGET = 141;
+// Ratcheted 2026-09-04: locked to the actual count (103) so new console noise fails CI.
+const BUDGET = 103;
 
 const PATTERN = /console\.(log|warn|error|info|debug)\s*\(/;
 const ALLOWLIST = [
