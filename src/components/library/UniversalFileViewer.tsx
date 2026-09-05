@@ -124,7 +124,7 @@ export default function UniversalFileViewer(props: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <header className="safe-area-top z-30 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm">
+      <header className="z-30 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </Button>
