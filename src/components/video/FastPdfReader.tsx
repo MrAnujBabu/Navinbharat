@@ -757,12 +757,14 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       window.visualViewport?.addEventListener("resize", update);
       window.addEventListener("resize", update);
       window.addEventListener("orientationchange", updateSettled);
+      window.addEventListener("app:resumed", updateSettled);
       return () => {
         timers.forEach((t) => window.clearTimeout(t));
         ro?.disconnect();
         window.visualViewport?.removeEventListener("resize", update);
         window.removeEventListener("resize", update);
         window.removeEventListener("orientationchange", updateSettled);
+        window.removeEventListener("app:resumed", updateSettled);
       };
     }, [surfaceEl]);
 

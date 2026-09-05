@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BookMarked, BookOpen, Download, Loader2, Maximize2, Minimize2, NotebookPen, Search, X } from "lucide-react";
 
 import RotatePhoneIcon from "../icons/RotatePhoneIcon";
@@ -291,18 +291,34 @@ export default function DocReaderShell({
   useEffect(() => () => { if (landscapeRef.current) unlockOrientation().catch(() => {}); }, []);
 
 
-  /** Full-page reading: fullscreen button, or landscape in the compact
-      My Library shell. Both must drop the title bar completely. */
-  const fullPage = isFullscreen || (libraryLocalMode && landscapeActive);
+  /** Installed app (PWA standalone / iOS home-screen / Capacitor native).
+      There the PDF must fill the whole screen the moment it opens. */
+  const installedApp = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const nav = window.navigator as Navigator & { standalone?: boolean };
+    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    return (
+      window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
+      window.matchMedia?.("(display-mode: fullscreen)")?.matches === true ||
+      nav.standalone === true ||
+      cap?.isNativePlatform?.() === true
+    );
+  }, []);
+
+  /** Full-page reading: fullscreen button, landscape in the compact My Library
+      shell, or any read inside the installed app. All drop the title bar. */
+  const forcedFullPage = libraryLocalMode && (landscapeActive || installedApp);
+  const fullPage = isFullscreen || forcedFullPage;
+
 
   useEffect(() => {
     setHeaderVisible(!fullPage);
   }, [fullPage]);
 
-  // My Library (local) shell keeps the normal app chrome while reading in
-  // portrait — no black bands, no immersive mode. But in full-page mode the
-  // Android status bar is exactly the strip the user sees, so hide it for as
-  // long as full-page lasts and always restore it afterwards.
+  // My Library (local) shell keeps normal app chrome outside full-page mode.
+  // Full-page has ONE native-chrome owner. Crucially, it does not publish or
+  // render synthetic system-bar spacers: once immersive mode hides those bars,
+  // retaining their old measured height is itself the pale strip.
   useEffect(() => {
     if (!libraryLocalMode || !fullPage) return;
     const releaseImmersive = acquireReaderImmersive();
@@ -399,7 +415,7 @@ export default function DocReaderShell({
     return () => window.clearTimeout(t);
   }, [pseudoLandscape]);
 
-  // Fullscreen enter/exit changes the available box; re-measure once the
+  // Fullscreen/installed full-page enter/exit changes the available box; re-measure once the
   // transition settles so a locally-stored (My Library) document goes truly
   // edge-to-edge instead of keeping the pre-fullscreen letterbox.
   useEffect(() => {
@@ -408,7 +424,7 @@ export default function DocReaderShell({
       try { window.dispatchEvent(new Event("resize")); } catch { /* ignore */ }
     }, 260);
     return () => window.clearTimeout(t);
-  }, [isFullscreen]);
+  }, [fullPage]);
 
   // Showing/hiding the floating header changes the surface box by the header
   // height (`top` animates over 300ms). Re-measure after the transition so the
@@ -605,7 +621,7 @@ export default function DocReaderShell({
   return (
     <div
       ref={shellRef}
-      className={`${libraryLocalMode ? (fullPage ? "bg-muted" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
+      className={`${libraryLocalMode ? (fullPage ? "nb-library-reader-stage bg-muted" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
       data-testid="doc-reader-shell"
       data-library-local={libraryLocalMode ? "true" : undefined}
     >
@@ -614,30 +630,30 @@ export default function DocReaderShell({
           gesture bar to the RIGHT — both showed as white strips beside the PDF
           in the Capacitor WebView. Cover all four gutters; each collapses to
           0px when its inset is 0. Not inside the rotation frame on purpose. */}
-      {(!libraryLocalMode || fullPage) && (
+      {!libraryLocalMode && (
         <>
           <div
             aria-hidden="true"
             data-testid="reader-notch-band"
-            className={`pointer-events-none fixed inset-x-0 top-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
+             className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
             style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-bottom"
-            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
+             className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
             style={{ height: "max(env(safe-area-inset-bottom, 0px), var(--nb-sysbar-bottom, 0px))" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-left"
-            className={`pointer-events-none fixed inset-y-0 left-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
+             className="pointer-events-none fixed inset-y-0 left-0 z-[75] nb-safe-band"
             style={{ width: "env(safe-area-inset-left, 0px)" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-right"
-            className={`pointer-events-none fixed inset-y-0 right-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
+             className="pointer-events-none fixed inset-y-0 right-0 z-[75] nb-safe-band"
             style={{ width: "env(safe-area-inset-right, 0px)" }}
           />
         </>
@@ -748,6 +764,40 @@ export default function DocReaderShell({
 
         </header>
 
+        {/* Full-page keeps commands reachable without restoring the large,
+            full-width title/status strip. Individual controls float over the
+            document and therefore reserve no PDF viewport height. */}
+        {libraryLocalMode && fullPage && (
+          <div
+            data-testid="reader-fullpage-toolbar"
+            className="fixed left-2 top-2 z-[76] flex items-center gap-1 rounded-md border bg-card/90 p-1 shadow-md backdrop-blur"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back" className="h-10 w-10">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            {itemId && (
+              <Button variant="ghost" size="icon" onClick={() => setNotesOpen((value) => !value)} aria-label="Toggle notes" className="h-10 w-10">
+                <NotebookPen className="h-5 w-5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSearchOpen((value) => !value)}
+              aria-label="Search in document"
+              className="h-10 w-10"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            {!forcedFullPage && (
+              <Button variant="ghost" size="icon" onClick={() => void toggleFullscreen()} aria-label="Exit fullscreen" className="h-10 w-10">
+                <Minimize2 className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Eye-comfort sepia overlay — sits above the PDF, ignores pointer events. */}
         {readingMode && (
           <div
@@ -779,7 +829,7 @@ export default function DocReaderShell({
             bar) — the previous safe-area-inset-top offset left a visible
             ~24–48 px white strip above the PDF on notched devices. */}
         <div
-          className={`${libraryLocalMode ? "relative min-h-0 flex-1 bg-muted" : "nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"}`}
+          className={`${libraryLocalMode ? (fullPage ? "absolute inset-0 min-h-0 bg-muted" : "relative min-h-0 flex-1 bg-muted") : "nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"}`}
           style={{
             // In landscape the page stays full-bleed at top:0 — the floating
             // header carries its own safe-area padding, and the offset used to

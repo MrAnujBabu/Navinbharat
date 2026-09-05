@@ -279,6 +279,16 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
   html:has(body.nb-library-reader-fullpage) {
     background: hsl(var(--muted)) !important;
   }
+  /* Local-library full page owns the complete visual viewport. Do not reserve
+     stale Android status/navigation-bar measurements here: those synthetic
+     gutters were the persistent light strip after immersive mode hid the OS
+     bars. Floating controls handle their own insets when required. */
+  .nb-library-reader-stage {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
   /* The root element paints the band behind the status bar / notch in the
      browser — leave it white and a strip bleeds through above the reader. */
   html:has(body.nb-doc-reader-open) {
