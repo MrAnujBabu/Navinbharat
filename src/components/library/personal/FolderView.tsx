@@ -82,7 +82,13 @@ export default function FolderView({ folder, allFolders, onRefreshOuter, sort = 
   const [moveItemId, setMoveItemId] = useState<string | null>(null);
   const [duplicateItemId, setDuplicateItemId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null);
-  const [open, setOpen] = useState<{ id: string; title: string; url: string; filename: string } | null>(null);
+  const [open, setOpen] = useState<{
+    id: string;
+    title: string;
+    url: string;
+    filename: string;
+    localLibraryPdf: boolean;
+  } | null>(null);
   const [formatFilter, setFormatFilter] = useState<string>(ALL_CHIP);
 
   // Multi-select for bulk delete + bulk priority on the personal library.
@@ -257,12 +263,15 @@ export default function FolderView({ folder, allFolders, onRefreshOuter, sort = 
   };
 
   const handleOpen = async (id: string, title: string, file_name: string) => {
+    const item = items.find((candidate) => candidate.id === id);
     const url = await getItemUri(id);
     if (!url) {
       toast.error("Couldn't open file — it may have been removed.");
       return;
     }
-    setOpen({ id, title, url, filename: file_name });
+    const isPdf = fileTypeFor(file_name, item?.mime_type) === "PDF";
+    const hasLocalBytes = !!item && !/^https?:\/\//i.test(item.local_path);
+    setOpen({ id, title, url, filename: file_name, localLibraryPdf: isPdf && hasLocalBytes });
   };
 
   if (open) {
@@ -275,6 +284,7 @@ export default function FolderView({ folder, allFolders, onRefreshOuter, sort = 
           itemId={open.id}
           fileType={fileTypeFor(open.filename)}
           source="library"
+          localLibraryPdf={open.localLibraryPdf}
           onBack={closeOpenFile}
         />
       </ReaderErrorBoundary>

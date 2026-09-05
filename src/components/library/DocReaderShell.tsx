@@ -53,10 +53,13 @@ interface Props {
   source?: "library" | "downloads" | "attachment" | "other";
   /** Resolve a [[wikilink]] note name to a new doc to open. */
   onOpenLink?: (name: string) => void;
+  /** Compact, non-immersive shell used only for locally-backed My Library PDFs. */
+  libraryLocalMode?: boolean;
 }
 
 export default function DocReaderShell({
   url, title, filename, onBack, hideDownload, onDownloaded, itemId, source = "other", onOpenLink,
+  libraryLocalMode = false,
 }: Props) {
   const [headerVisible, setHeaderVisible] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -192,6 +195,7 @@ export default function DocReaderShell({
   // a no-op; always restore on unmount so navigating away can never leave
   // the app in hidden-chrome state.
   useEffect(() => {
+    if (libraryLocalMode) return;
     // Overlay mode: if Android reveals a transient bar (edge swipe) it floats
     // over the page instead of shrinking the WebView and re-adding a strip.
     void setStatusBarOverlay(true);
@@ -239,7 +243,7 @@ export default function DocReaderShell({
       );
       releaseImmersive();
     };
-  }, []);
+  }, [libraryLocalMode]);
 
   // While the reader is rotated in CSS, toasts must render inside the rotated
   // frame (see below) — hide the global <body>-level toaster so they don't
@@ -405,10 +409,10 @@ export default function DocReaderShell({
   // black page background. Otherwise the light theme's white body shows through
   // in the status-bar / notch band as a white strip above the PDF.
   useEffect(() => {
-
+    if (libraryLocalMode) return;
     document.body.classList.add("nb-doc-reader-open");
     return () => document.body.classList.remove("nb-doc-reader-open");
-  }, []);
+  }, [libraryLocalMode]);
 
   // Abort any in-flight download on unmount / back so the fetch stops
   // burning bandwidth after the reader closes.
@@ -545,36 +549,45 @@ export default function DocReaderShell({
   const showAddToLibrary = source !== "library";
 
   return (
-    <div ref={shellRef} className="nb-reader-surface fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150" data-testid="doc-reader-shell">
+    <div
+      ref={shellRef}
+      className={`${libraryLocalMode ? "bg-background" : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
+      data-testid="doc-reader-shell"
+      data-library-local={libraryLocalMode ? "true" : undefined}
+    >
       {/* Opaque bands behind every safe-area gutter. Only the top band existed
           before, so in landscape the notch/pill moved to the LEFT edge and the
           gesture bar to the RIGHT — both showed as white strips beside the PDF
           in the Capacitor WebView. Cover all four gutters; each collapses to
           0px when its inset is 0. Not inside the rotation frame on purpose. */}
-      <div
-        aria-hidden="true"
-        data-testid="reader-notch-band"
-        className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
-        style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
-      />
-      <div
-        aria-hidden="true"
-        data-testid="reader-notch-band-bottom"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
-        style={{ height: "max(env(safe-area-inset-bottom, 0px), var(--nb-sysbar-bottom, 0px))" }}
-      />
-      <div
-        aria-hidden="true"
-        data-testid="reader-notch-band-left"
-        className="pointer-events-none fixed inset-y-0 left-0 z-[75] nb-safe-band"
-        style={{ width: "env(safe-area-inset-left, 0px)" }}
-      />
-      <div
-        aria-hidden="true"
-        data-testid="reader-notch-band-right"
-        className="pointer-events-none fixed inset-y-0 right-0 z-[75] nb-safe-band"
-        style={{ width: "env(safe-area-inset-right, 0px)" }}
-      />
+      {!libraryLocalMode && (
+        <>
+          <div
+            aria-hidden="true"
+            data-testid="reader-notch-band"
+            className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
+            style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
+          />
+          <div
+            aria-hidden="true"
+            data-testid="reader-notch-band-bottom"
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
+            style={{ height: "max(env(safe-area-inset-bottom, 0px), var(--nb-sysbar-bottom, 0px))" }}
+          />
+          <div
+            aria-hidden="true"
+            data-testid="reader-notch-band-left"
+            className="pointer-events-none fixed inset-y-0 left-0 z-[75] nb-safe-band"
+            style={{ width: "env(safe-area-inset-left, 0px)" }}
+          />
+          <div
+            aria-hidden="true"
+            data-testid="reader-notch-band-right"
+            className="pointer-events-none fixed inset-y-0 right-0 z-[75] nb-safe-band"
+            style={{ width: "env(safe-area-inset-right, 0px)" }}
+          />
+        </>
+      )}
       {/* Center column — this is also the pseudo-landscape rotation frame, so
           header, PDF surface, FABs and the page chip all rotate together. */}
       <div
@@ -591,12 +604,15 @@ export default function DocReaderShell({
           // When hidden we ALSO fade + `invisible` it: on Android WebViews the
           // translate alone left a pale sliver of the bar's safe-area padding
           // across the top of locally-opened (offline) PDFs.
-          className={`absolute left-0 right-0 top-0 z-50 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ${
+          className={`${libraryLocalMode ? "relative shrink-0" : "absolute left-0 right-0 top-0"} z-50 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ${
             headerVisible
               ? "translate-y-0 opacity-100 pointer-events-auto"
-              : "-translate-y-full opacity-0 invisible pointer-events-none"
+              : libraryLocalMode
+                ? "absolute inset-x-0 top-0 -translate-y-full opacity-0 invisible pointer-events-none"
+                : "-translate-y-full opacity-0 invisible pointer-events-none"
           }`}
           aria-hidden={!headerVisible}
+          style={libraryLocalMode && !headerVisible ? { display: "none" } : undefined}
 
           onClick={(e) => e.stopPropagation()}
         >
@@ -691,13 +707,25 @@ export default function DocReaderShell({
             we removed the distracting "Reading" pill. Tap reveals the header
             which contains the BookOpen toggle. */}
 
+        {searchOpen && libraryLocalMode && (
+          <Suspense fallback={null}>
+            <ReaderSearchBar
+              flow
+              topOffset={0}
+              onClose={() => setSearchOpen(false)}
+              onSearch={async (q) => (await viewerRef.current?.findPages(q)) ?? []}
+              onJump={(page) => viewerRef.current?.goToPage(page)}
+            />
+          </Suspense>
+        )}
+
         {/* PDF surface — offset only while the floating header is visible so
             the first page never sits under the header/notch. When the header
             auto-hides we collapse fully to top:0 (full-bleed under the status
             bar) — the previous safe-area-inset-top offset left a visible
             ~24–48 px white strip above the PDF on notched devices. */}
         <div
-          className="nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"
+          className={`${libraryLocalMode ? "relative min-h-0 flex-1 bg-muted" : "nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"}`}
           style={{
             // In landscape the page stays full-bleed at top:0 — the floating
             // header carries its own safe-area padding, and the offset used to
@@ -705,8 +733,9 @@ export default function DocReaderShell({
             // hardcoded 48px was shorter than the real header on notched
             // devices, leaving a pale strip. The pseudo-landscape rotation now
             // lives on the frame (parent), never on this surface.
-            top:
-              searchOpen && !landscape
+            top: libraryLocalMode
+              ? undefined
+              : searchOpen && !landscape
                 ? `${headerHeight + 56}px`
                 : headerVisible && !landscape
                   ? `${headerHeight}px`
@@ -765,7 +794,7 @@ export default function DocReaderShell({
           />
         )}
 
-        {searchOpen && (
+        {searchOpen && !libraryLocalMode && (
           <Suspense fallback={null}>
             <ReaderSearchBar
               topOffset={headerHeight}

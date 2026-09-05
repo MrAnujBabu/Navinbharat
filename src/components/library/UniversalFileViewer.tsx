@@ -50,6 +50,8 @@ interface Props {
   fileType: string;
   itemId?: string;
   source?: "library" | "downloads" | "attachment" | "other";
+  /** My Library item backed by device/IndexedDB bytes, not a remote link. */
+  localLibraryPdf?: boolean;
   hideDownload?: boolean;
   onBack: () => void;
 }
@@ -75,7 +77,7 @@ export default function UniversalFileViewer(props: Props) {
       <NotionPageRenderer url={url} title={title} onClose={onBack} />
     </div>
   );
-  if (kind === "PDF") return <DocReaderShell {...props} />;
+  if (kind === "PDF") return <DocReaderShell {...props} libraryLocalMode={props.localLibraryPdf === true} />;
   if (kind === "MARKDOWN") return (
     <MarkdownViewer url={url} title={title} filename={filename} onBack={onBack} hideDownload={hideDownload} />
   );

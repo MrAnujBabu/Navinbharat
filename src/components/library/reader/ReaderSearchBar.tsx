@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void;
   /** Extra bottom offset (px) so the soft keyboard never covers the field. */
   topOffset: number;
+  /** Participate in normal layout instead of floating over the document. */
+  flow?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * jump between the pages that match. Mobile-first: 44px targets, 16px input
  * font so iOS never zooms the viewport on focus.
  */
-export default function ReaderSearchBar({ onSearch, onJump, onClose, topOffset }: Props) {
+export default function ReaderSearchBar({ onSearch, onJump, onClose, topOffset, flow = false }: Props) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<number[]>([]);
@@ -68,8 +70,8 @@ export default function ReaderSearchBar({ onSearch, onJump, onClose, topOffset }
 
   return (
     <div
-      className="absolute inset-x-0 z-50 border-b bg-card/95 px-2 py-2 shadow-sm backdrop-blur"
-      style={{ top: `${topOffset}px` }}
+      className={`${flow ? "relative shrink-0" : "absolute inset-x-0"} z-50 border-b bg-card/95 px-2 py-2 shadow-sm backdrop-blur`}
+      style={{ top: flow ? undefined : `${topOffset}px` }}
       onClick={(e) => e.stopPropagation()}
       role="search"
     >
