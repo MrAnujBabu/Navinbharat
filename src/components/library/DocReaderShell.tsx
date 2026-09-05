@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BookMarked, BookOpen, Download, Loader2, Maximize2, Minimize2, NotebookPen, Search, X } from "lucide-react";
 
 import RotatePhoneIcon from "../icons/RotatePhoneIcon";
@@ -315,31 +315,23 @@ export default function DocReaderShell({
     setHeaderVisible(!fullPage);
   }, [fullPage]);
 
-  // My Library (local) shell keeps normal app chrome outside full-page mode.
-  // Full-page has ONE native-chrome owner. Crucially, it does not publish or
-  // render synthetic system-bar spacers: once immersive mode hides those bars,
-  // retaining their old measured height is itself the pale strip.
-  useEffect(() => {
+  // My Library full-page has one system-bar owner: the Android immersive
+  // bridge. Do not also call the StatusBar plugin here — two asynchronous
+  // owners can finish out of order after rotation and reserve the top inset
+  // again. The bridge is a safe no-op in a browser/PWA.
+  useLayoutEffect(() => {
     if (!libraryLocalMode || !fullPage) return;
     const releaseImmersive = acquireReaderImmersive();
     document.body.classList.add("nb-library-reader-fullpage");
-    const applyFullPageChrome = async () => {
-      // Enter through both native paths. Capacitor calls are deliberately
-      // ordered: Android otherwise sometimes completes overlay=false from a
-      // previous screen after immersive mode has already been requested.
-      enterImmersive();
-      await setStatusBarOverlay(true);
-      await hideStatusBar();
+    const applyFullPageChrome = () => {
       enterImmersive();
     };
-    void applyFullPageChrome();
+    applyFullPageChrome();
     let t: number | null = null;
     const reapply = () => {
       if (t) window.clearTimeout(t);
-      void applyFullPageChrome();
-      t = window.setTimeout(() => {
-        void applyFullPageChrome();
-      }, 120);
+      applyFullPageChrome();
+      t = window.setTimeout(applyFullPageChrome, 120);
     };
     const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
     window.addEventListener("orientationchange", reapply);
@@ -353,12 +345,10 @@ export default function DocReaderShell({
       window.removeEventListener("focus", reapply);
       document.removeEventListener("visibilitychange", onVisible);
       document.body.classList.remove("nb-library-reader-fullpage");
-      void showStatusBar();
-      void setStatusBarOverlay(false);
+      releaseImmersive();
       void applyStatusBarForTheme(
         document.documentElement.classList.contains("dark") ? "dark" : "light",
       );
-      releaseImmersive();
     };
   }, [libraryLocalMode, fullPage]);
 
@@ -415,16 +405,16 @@ export default function DocReaderShell({
     return () => window.clearTimeout(t);
   }, [pseudoLandscape]);
 
-  // Fullscreen/installed full-page enter/exit changes the available box; re-measure once the
-  // transition settles so a locally-stored (My Library) document goes truly
-  // edge-to-edge instead of keeping the pre-fullscreen letterbox.
+  // Reset persisted zoom as soon as full-page/rotation changes. The PDF
+  // surface owns subsequent geometry through ResizeObserver, so there are no
+  // guessed Android transition timers that can commit a stale inset width.
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    const frame = requestAnimationFrame(() => {
       notifyPortalHostChanged();
-      try { window.dispatchEvent(new Event("resize")); } catch { /* ignore */ }
-    }, 260);
-    return () => window.clearTimeout(t);
-  }, [fullPage]);
+      if (libraryLocalMode) viewerRef.current?.fitWidth();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fullPage, landscapeActive, libraryLocalMode, url]);
 
   // Showing/hiding the floating header changes the surface box by the header
   // height (`top` animates over 300ms). Re-measure after the transition so the
@@ -667,7 +657,7 @@ export default function DocReaderShell({
         onClick={handleSurfaceTap}
       >
 
-        <header
+        {(!libraryLocalMode || !fullPage) && <header
           ref={setHeaderEl}
           // z-50 keeps the toolbar above the save-progress overlay (z-40) and
           // every viewer overlay, so its controls never go dead mid-download.
@@ -762,7 +752,7 @@ export default function DocReaderShell({
             {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
           </Button>
 
-        </header>
+        </header>}
 
         {/* Full-page keeps commands reachable without restoring the large,
             full-width title/status strip. Individual controls float over the

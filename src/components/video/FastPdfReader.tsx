@@ -627,6 +627,16 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
     const numPagesRef = useRef(0);
     const textCacheRef = useRef<Map<number, string>>(new Map());
 
+    /** Re-read the committed surface instead of trusting an earlier viewport
+     * event. Android's full-screen transition can report the old inset width
+     * for several frames after the reader is already visible. */
+    const measureFitWidth = useCallback(() => {
+      const el = scrollRef.current;
+      const visualWidth = window.visualViewport?.width ?? window.innerWidth;
+      const visualHeight = window.visualViewport?.height ?? window.innerHeight;
+      setPageWidth(computeFitPageWidth(visualWidth, el?.clientWidth ?? 0, visualHeight));
+    }, []);
+
     useEffect(() => { onZoomChange?.(zoom); }, [zoom, onZoomChange]);
     useEffect(() => { textCacheRef.current = new Map(); }, [src]);
 
@@ -650,7 +660,13 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       getIframeEl: () => null,
       getZoom: () => zoomRef.current,
       zoomBy: (factor: number) => zoomAroundCentre(zoomRef.current * factor),
-      fitWidth: () => zoomAroundCentre(1),
+      fitWidth: () => {
+        measureFitWidth();
+        // Always normalise persisted manual zoom on an explicit fit command;
+        // zoomAroundCentre intentionally no-ops at 1 and therefore cannot be
+        // responsible for the final post-rotation width measurement.
+        commitZoom(1);
+      },
       getNumPages: () => numPagesRef.current,
       goToPage: (page: number) => {
         const root = scrollRef.current;
@@ -691,7 +707,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         }
         return hits;
       },
-    }), [zoomAroundCentre]);
+    }), [commitZoom, measureFitWidth, zoomAroundCentre]);
 
     const renderWidth = Math.round(pageWidth * zoom);
 
@@ -737,9 +753,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
     useEffect(() => {
       const el = surfaceEl;
       const update = () => {
-        const visualWidth = window.visualViewport?.width ?? window.innerWidth;
-        const visualHeight = window.visualViewport?.height ?? window.innerHeight;
-        setPageWidth(computeFitPageWidth(visualWidth, el?.clientWidth ?? 0, visualHeight));
+        measureFitWidth();
       };
       // The rotation animation resizes the surface over several frames; the
       // last event can still carry a mid-transition width, so re-measure once
@@ -766,7 +780,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         window.removeEventListener("orientationchange", updateSettled);
         window.removeEventListener("app:resumed", updateSettled);
       };
-    }, [surfaceEl]);
+    }, [measureFitWidth, surfaceEl]);
 
 
 
@@ -1361,7 +1375,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
 
     if (resolving || (fallbackLoading && !file)) {
       return (
-        <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-900">
+        <div className="nb-pdf-surface absolute inset-0 bg-neutral-100 dark:bg-neutral-900">
           {showLoadingOverlay && <ReaderProgress visible title={title} variant="pdf" />}
         </div>
       );
@@ -1371,7 +1385,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
     if (resolveError) {
       pdfLogError("resolve-error", resolveError, { url });
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
+        <div className="nb-pdf-surface absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
           <p className="text-destructive">{friendlyPdfErrorMessage(new Error(resolveError), url)}</p>
           <div className="flex items-center gap-4">
             <button
@@ -1395,7 +1409,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
 
     if (src && isKnownNonPdfWebUrl(src)) {
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
+        <div className="nb-pdf-surface absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
           <p className="text-foreground">This attachment is a web page, not a PDF.</p>
           <button
             type="button"
@@ -1437,7 +1451,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
 
     if (error) {
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
+        <div className="nb-pdf-surface absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
           <p className="max-w-sm text-destructive">{error}</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             {errorAction ? (
@@ -1486,7 +1500,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
     // which is exactly what users were seeing on APK for missing offline files.
     if (!file) {
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
+        <div className="nb-pdf-surface absolute inset-0 flex flex-col items-center justify-center gap-3 bg-neutral-100 p-8 text-center text-sm dark:bg-neutral-900">
           <p className="text-destructive">Offline copy missing for this file.</p>
           <p className="text-muted-foreground">
             Connect to the internet and re-download it to view again.
@@ -1500,7 +1514,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         ref={setScrollEl}
         data-archive-virtualized={isArchiveSource(src) ? "true" : undefined}
         className={cn(
-          "absolute inset-0 overflow-y-auto overscroll-contain bg-neutral-100 [&_.react-pdf__Document]:w-full [&_.react-pdf__Page]:!mx-auto [&_.react-pdf__Page]:!w-full [&_.react-pdf__Page]:!max-w-full [&_.react-pdf__Page__canvas]:!h-auto [&_.react-pdf__Page__canvas]:!w-full [&_.react-pdf__Page__canvas]:!max-w-full [&_.react-pdf__Page__canvas]:!block [&_.annotationLayer_section]:!pointer-events-auto dark:bg-neutral-900",
+          "nb-pdf-surface absolute inset-0 overflow-y-auto overscroll-contain bg-neutral-100 [&_.react-pdf__Document]:w-full [&_.react-pdf__Page]:!mx-auto [&_.react-pdf__Page]:!w-full [&_.react-pdf__Page]:!max-w-full [&_.react-pdf__Page__canvas]:!h-auto [&_.react-pdf__Page__canvas]:!w-full [&_.react-pdf__Page__canvas]:!max-w-full [&_.react-pdf__Page__canvas]:!block [&_.annotationLayer_section]:!pointer-events-auto dark:bg-neutral-900",
           zoom > 1 ? "overflow-x-auto" : "overflow-x-hidden"
         )}
         onClick={onSurfaceTap}

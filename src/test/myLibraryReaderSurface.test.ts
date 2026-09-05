@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 
 const shell = readFileSync("src/components/library/DocReaderShell.tsx", "utf8");
 const folder = readFileSync("src/components/library/personal/FolderView.tsx", "utf8");
+const pdf = readFileSync("src/components/video/FastPdfReader.tsx", "utf8");
+const css = readFileSync("src/index.css", "utf8");
 
 describe("My Library compact local PDF surface", () => {
   it("routes only locally-backed PDF records into local mode", () => {
@@ -22,9 +24,14 @@ describe("My Library compact local PDF surface", () => {
     expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0 bg-muted" : "relative min-h-0 flex-1 bg-muted"');
   });
 
-  it("does not acquire immersive chrome or the black body override in local mode", () => {
-    const guards = shell.match(/if \(libraryLocalMode\) return;/g) ?? [];
-    expect(guards.length).toBeGreaterThanOrEqual(2);
+  it("uses one immersive owner for local full-page instead of racing the StatusBar plugin", () => {
+    const localEffect = shell.slice(
+      shell.indexOf("My Library full-page has one system-bar owner"),
+      shell.indexOf("// ── Rotate FAB"),
+    );
+    expect(localEffect).toContain("acquireReaderImmersive()");
+    expect(localEffect).not.toContain("setStatusBarOverlay(true)");
+    expect(localEffect).not.toContain("hideStatusBar()");
   });
 
   it("keeps autoscroll and download controls available in local full-page mode", () => {
@@ -36,8 +43,15 @@ describe("My Library compact local PDF surface", () => {
   it("uses compact overlay commands instead of restoring the title strip", () => {
     expect(shell).toContain('data-testid="reader-fullpage-toolbar"');
     expect(shell).toContain("libraryLocalMode && fullPage");
+    expect(shell).toContain("{(!libraryLocalMode || !fullPage) && <header");
     expect(shell).toContain('aria-label="Back"');
     expect(shell).toContain('aria-label="Search in document"');
+  });
+
+  it("removes the flow header before the first local full-page paint", () => {
+    expect(shell).toContain("useLayoutEffect(() => {");
+    expect(shell).toContain('document.body.classList.add("nb-library-reader-fullpage")');
+    expect(shell).toContain("{(!libraryLocalMode || !fullPage) && <header");
   });
 
   it("makes the local full-page PDF stage cover the full shell", () => {
@@ -48,5 +62,20 @@ describe("My Library compact local PDF surface", () => {
   it("uses a non-black full-page floor while native bars transition", () => {
     expect(shell).toContain('document.body.classList.add("nb-library-reader-fullpage")');
     expect(shell).toContain('document.body.classList.remove("nb-library-reader-fullpage")');
+  });
+
+  it("re-applies fit-width after local fullscreen and rotation settle", () => {
+    expect(shell).toContain("if (libraryLocalMode) viewerRef.current?.fitWidth()");
+    expect(shell).toContain("[fullPage, landscapeActive, libraryLocalMode, url]");
+    expect(shell).not.toContain("const final = window.setTimeout(settle, 520)");
+    expect(pdf).toContain("const measureFitWidth = useCallback");
+    expect(pdf).toContain("measureFitWidth();");
+    expect(pdf).toContain("commitZoom(1);");
+  });
+
+  it("paints every PDF transient layer with the same themed surface", () => {
+    expect(pdf.match(/nb-pdf-surface/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(css).toContain(".nb-library-reader-stage .nb-pdf-surface");
+    expect(css).toContain("background-color: hsl(var(--muted)) !important");
   });
 });

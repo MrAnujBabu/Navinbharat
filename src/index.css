@@ -288,6 +288,15 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
+    background-color: hsl(var(--muted));
+  }
+  /* Every transient PDF layer uses the same reader colour. This includes the
+     canvas scroll floor and loading/error placeholders, so Android can never
+     expose a white or black seam while the viewport settles. */
+  .nb-library-reader-stage .nb-pdf-surface,
+  .nb-library-reader-stage .bg-card,
+  .nb-library-reader-stage .bg-background {
+    background-color: hsl(var(--muted)) !important;
   }
   /* The root element paints the band behind the status bar / notch in the
      browser — leave it white and a strip bleeds through above the reader. */
