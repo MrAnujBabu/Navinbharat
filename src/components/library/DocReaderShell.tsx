@@ -305,16 +305,24 @@ export default function DocReaderShell({
   // long as full-page lasts and always restore it afterwards.
   useEffect(() => {
     if (!libraryLocalMode || !fullPage) return;
-    void setStatusBarOverlay(true);
-    void hideStatusBar();
     const releaseImmersive = acquireReaderImmersive();
+    document.body.classList.add("nb-library-reader-fullpage");
+    const applyFullPageChrome = async () => {
+      // Enter through both native paths. Capacitor calls are deliberately
+      // ordered: Android otherwise sometimes completes overlay=false from a
+      // previous screen after immersive mode has already been requested.
+      enterImmersive();
+      await setStatusBarOverlay(true);
+      await hideStatusBar();
+      enterImmersive();
+    };
+    void applyFullPageChrome();
     let t: number | null = null;
     const reapply = () => {
       if (t) window.clearTimeout(t);
-      enterImmersive();
+      void applyFullPageChrome();
       t = window.setTimeout(() => {
-        void hideStatusBar();
-        enterImmersive();
+        void applyFullPageChrome();
       }, 120);
     };
     const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
@@ -328,6 +336,7 @@ export default function DocReaderShell({
       window.removeEventListener("resize", reapply);
       window.removeEventListener("focus", reapply);
       document.removeEventListener("visibilitychange", onVisible);
+      document.body.classList.remove("nb-library-reader-fullpage");
       void showStatusBar();
       void setStatusBarOverlay(false);
       void applyStatusBarForTheme(
@@ -596,7 +605,7 @@ export default function DocReaderShell({
   return (
     <div
       ref={shellRef}
-      className={`${libraryLocalMode ? "bg-background" : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
+      className={`${libraryLocalMode ? (fullPage ? "bg-muted" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
       data-testid="doc-reader-shell"
       data-library-local={libraryLocalMode ? "true" : undefined}
     >
@@ -605,30 +614,30 @@ export default function DocReaderShell({
           gesture bar to the RIGHT — both showed as white strips beside the PDF
           in the Capacitor WebView. Cover all four gutters; each collapses to
           0px when its inset is 0. Not inside the rotation frame on purpose. */}
-      {!libraryLocalMode && (
+      {(!libraryLocalMode || fullPage) && (
         <>
           <div
             aria-hidden="true"
             data-testid="reader-notch-band"
-            className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
+            className={`pointer-events-none fixed inset-x-0 top-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
             style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-bottom"
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-[75] nb-safe-band"
+            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
             style={{ height: "max(env(safe-area-inset-bottom, 0px), var(--nb-sysbar-bottom, 0px))" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-left"
-            className="pointer-events-none fixed inset-y-0 left-0 z-[75] nb-safe-band"
+            className={`pointer-events-none fixed inset-y-0 left-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
             style={{ width: "env(safe-area-inset-left, 0px)" }}
           />
           <div
             aria-hidden="true"
             data-testid="reader-notch-band-right"
-            className="pointer-events-none fixed inset-y-0 right-0 z-[75] nb-safe-band"
+            className={`pointer-events-none fixed inset-y-0 right-0 z-[75] ${libraryLocalMode ? "bg-muted" : "nb-safe-band"}`}
             style={{ width: "env(safe-area-inset-right, 0px)" }}
           />
         </>
@@ -820,7 +829,9 @@ export default function DocReaderShell({
           // Landscape is the reading posture: the floating page chip sat over
           // the page text on the short edge, so hide it entirely there.
           showPageChip={!landscapeActive}
-          visible={headerVisible || autoActive}
+          // Full-page is distraction-free, not control-free: autoscroll must
+          // remain reachable in both portrait and landscape.
+          visible={fullPage || headerVisible || autoActive}
           onActiveChange={(a) => {
             setAutoActive(a);
             if (a) setHeaderVisible(false);
@@ -864,7 +875,7 @@ export default function DocReaderShell({
           aria-pressed={landscape}
           title="Rotate to landscape"
           style={{ bottom: hideDownload ? "calc(env(safe-area-inset-bottom, 0px) + 20px)" : "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
-          className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${headerVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${fullPage || headerVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         >
           <RotatePhoneIcon className={`h-7 w-7 transition-transform drop-shadow-md ${landscape ? "rotate-90" : ""}`} />
         </button>
@@ -872,7 +883,7 @@ export default function DocReaderShell({
 
         <div
           className={`transition-opacity duration-300 ${
-            headerVisible && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"
+            (fullPage || headerVisible) && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
           {!hideDownload && (

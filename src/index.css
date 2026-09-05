@@ -266,6 +266,19 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
     background: #000 !important;
     overscroll-behavior: none;
   }
+  /* My Library fullscreen uses the normal document palette rather than the
+     global black reader floor. It still paints every WebView pixel while the
+     native bars are transitioning, preventing a white flash/strip without a
+     black screen. */
+  body.nb-library-reader-fullpage {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: hsl(var(--muted)) !important;
+    overscroll-behavior: none;
+  }
+  html:has(body.nb-library-reader-fullpage) {
+    background: hsl(var(--muted)) !important;
+  }
   /* The root element paints the band behind the status bar / notch in the
      browser — leave it white and a strip bleeds through above the reader. */
   html:has(body.nb-doc-reader-open) {
