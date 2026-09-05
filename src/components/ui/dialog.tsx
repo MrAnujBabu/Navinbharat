@@ -3,8 +3,6 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "../../lib/utils";
-import { useKeyboardInset } from "../../hooks/useKeyboardInset";
-
 
 const Dialog = DialogPrimitive.Root;
 
@@ -34,11 +32,8 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  // Soft-keyboard height, so a dialog with inputs stays fully visible.
-  const keyboardInset = useKeyboardInset();
   // Ref-counted body flag while any dialog is open so we can hide floating
   // brand/help FABs via CSS — see index.css. AutoScrollFab is portal-isolated.
-
   React.useEffect(() => {
     const el = document.body;
     const prev = Number(el.dataset.lovableDialogCount ?? "0");
@@ -63,26 +58,12 @@ const DialogContent = React.forwardRef<
         className={cn(
           // Lovable card: rounded-2xl, hairline + soft lifted shadow, mobile-safe width.
           "fixed left-[50%] top-[50%] z-[70] grid w-full max-w-[calc(100vw-2rem)] sm:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl bg-background p-5 duration-200",
-          // Never taller than the visible viewport: scroll the card's own
-          // content instead of pushing the action buttons under the soft
-          // keyboard (Android WebView keeps the layout viewport full height).
-          "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain",
           "shadow-[0_0_0_1px_hsl(var(--border)/0.6),0_20px_50px_-10px_rgba(0,0,0,0.25)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
-        style={
-          keyboardInset
-            ? {
-                maxHeight: `calc(100dvh - 2rem - ${keyboardInset}px)`,
-                top: `calc(50% - ${Math.round(keyboardInset / 2)}px)`,
-                ...props.style,
-              }
-            : props.style
-        }
         {...props}
       >
-
         <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
         <DialogPrimitive.Description className="sr-only">Dialog content</DialogPrimitive.Description>
         {children}

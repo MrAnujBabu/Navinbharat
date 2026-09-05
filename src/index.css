@@ -291,33 +291,6 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
     background-color: #000;
   }
 
-  /* Full-screen document reader only: every PDF surface layer (scroller,
-     wrapper, page placeholders, loading state) sits on the black reader
-     background. Previously these used the themed light surface, so a pale
-     strip showed above the page under the status-bar band. The inline lesson
-     viewer keeps its themed background — this is scoped to the reader body
-     class set by DocReaderShell. */
-  body.nb-doc-reader-open .nb-pdf-surface {
-    background-color: #000 !important;
-  }
-
-  /* Full-screen document reader only: the floating title bar (and the
-     safe-area padding it carries behind the status bar) uses the dark reader
-     scrim instead of the themed light card colour, so no white strip shows
-     above the page in either theme. Icons/labels flip to light-on-dark. The
-     inline lesson viewer header is untouched — this is scoped to the reader
-     body class set by DocReaderShell. */
-  body.nb-doc-reader-open .nb-reader-chrome {
-    background-color: rgba(0, 0, 0, 0.72) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-    color: #fff;
-  }
-  body.nb-doc-reader-open .nb-reader-chrome button,
-  body.nb-doc-reader-open .nb-reader-chrome h1 {
-    color: #fff;
-  }
-
-
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

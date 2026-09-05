@@ -58,10 +58,7 @@ export type FastPdfReaderHandle = {
   zoomBy: (factor: number) => void;
   /** Reset to fit-width (zoom = 1). */
   fitWidth: () => void;
-  /** Toggle fitting the whole page (both axes) — landscape slides. */
-  fitPage: () => void;
   getNumPages: () => number;
-
   /** Scroll a 1-based page into view. */
   goToPage: (page: number) => void;
   /** Pages (1-based, ascending) whose text contains `query`. */
@@ -182,9 +179,8 @@ const isTransportDeath = (err: unknown): boolean => {
 };
 
 
-import { computeFitPageWidth, computeFitPageBoxWidth, zoomStorageKey, shouldAutoFitPage, clampStoredZoom } from "../../lib/pdfFit";
+import { computeFitPageWidth } from "../../lib/pdfFit";
 export { computeFitPageWidth };
-
 import { measureContentBox, fitToContent, type ContentFit } from "../../lib/pdfContentBox";
 
 import { isSheetsSource, isArchiveSource, pdfSizeProbeRange } from "../../lib/pdfSourceKind";
@@ -273,7 +269,7 @@ function LazyPage({
             onRenderSuccess={() => onRendered(pageNumber)}
             renderAnnotationLayer
             renderTextLayer={false}
-          loading={<div style={{ width: fit.cropWidth, height: fit.cropHeight }} className="nb-pdf-surface bg-neutral-100 dark:bg-neutral-900" />}
+          loading={<div style={{ width: fit.cropWidth, height: fit.cropHeight }} className="bg-neutral-100 dark:bg-neutral-900" />}
           />
         </div>
       </div>
@@ -298,10 +294,10 @@ function LazyPage({
           onRenderSuccess={() => onRendered(pageNumber)}
           renderAnnotationLayer
           renderTextLayer={false}
-            loading={<div style={{ width, height: placeholderHeight }} className="nb-pdf-surface bg-neutral-100 dark:bg-neutral-900" />}
+            loading={<div style={{ width, height: placeholderHeight }} className="bg-neutral-100 dark:bg-neutral-900" />}
         />
       ) : (
-        <div style={{ width, height: placeholderHeight }} className="nb-pdf-surface bg-neutral-100 dark:bg-neutral-900" />
+        <div style={{ width, height: placeholderHeight }} className="bg-neutral-100 dark:bg-neutral-900" />
       )}
     </div>
   );
@@ -484,43 +480,25 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       if (typeof window === "undefined") return 800;
       return computeFitPageWidth(window.visualViewport?.width ?? window.innerWidth);
     });
-    // Visible height of the reader surface + first-page aspect (width/height),
-    // both needed to fit a whole landscape slide on screen.
-    const [surfaceHeight, setSurfaceHeight] = useState<number>(() =>
-      typeof window === "undefined" ? 0 : window.visualViewport?.height ?? window.innerHeight
-    );
-    const [pageAspect, setPageAspect] = useState(0);
-
-
 
     // ── Pinch-to-zoom (2-finger). No UI controls. Smooth: live CSS transform
     // during pinch (no React re-render → no flicker), then commit on release
     // so PDF.js re-rasterises the canvas at the new resolution (crisp, not blurry).
-    // Zoom is remembered PER DOCUMENT. A single global key made every new
-    // document inherit the last zoom used, so wide lecture slides opened
-    // already magnified and were clipped on the left/right.
-    const zoomKey = useMemo(() => zoomStorageKey(url), [url]);
+    const ZOOM_KEY = "nb_pdf_zoom";
     const pagesWrapperRef = useRef<HTMLDivElement>(null);
-    const readStoredZoom = useCallback((key: string) => {
-      if (typeof window === "undefined") return MIN_ZOOM;
-      try {
-        const v = parseFloat(localStorage.getItem(key) || "");
-        // MIN_ZOOM is 1 (= fit width = 100%): below 100% the page renders too
-        // small to read on a phone, so 100% is both the default and the floor.
-        return clampStoredZoom(v, MIN_ZOOM, MAX_ZOOM);
-      } catch {
-        return MIN_ZOOM;
-      }
-    }, []);
-    const [zoom, setZoom] = useState<number>(() => readStoredZoom(zoomKey));
-    // Switching documents inside the same reader must not carry zoom over.
-    useEffect(() => { setZoom(readStoredZoom(zoomKey)); }, [zoomKey, readStoredZoom]);
+    const [zoom, setZoom] = useState<number>(() => {
+      if (typeof window === "undefined") return 1;
+      const v = parseFloat(localStorage.getItem(ZOOM_KEY) || "");
+      // MIN_ZOOM is 1 (= fit width = 100%): below 100% the page renders too
+      // small to read on a phone, so 100% is both the default and the floor.
+      // Legacy stored values below 1 are normalised up to 1.
+      return Number.isFinite(v) && v > 0 ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v)) : MIN_ZOOM;
+    });
     const commitZoom = useCallback((next: number) => {
       const v = clampZoom(next);
       setZoom(v);
-      try { localStorage.setItem(zoomKey, String(v)); } catch { /* ignore */ }
-    }, [zoomKey]);
-
+      try { localStorage.setItem(ZOOM_KEY, String(v)); } catch { /* ignore */ }
+    }, []);
 
     const pinchRef = useRef<{ startDist: number; startZoom: number; live: number } | null>(null);
     // Focal point of the active gesture, expressed in *content* coordinates
@@ -671,11 +649,8 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       getScrollEl: () => scrollRef.current,
       getIframeEl: () => null,
       getZoom: () => zoomRef.current,
-      zoomBy: (factor: number) => { setFitWholePage(false); zoomAroundCentre(zoomRef.current * factor); },
-      fitWidth: () => { setFitWholePage(false); zoomAroundCentre(1); },
-      /** Fit the ENTIRE page (both axes) — for landscape / slide-shaped PDFs. */
-      fitPage: () => { commitZoom(1); setFitWholePage((v) => !v); },
-
+      zoomBy: (factor: number) => zoomAroundCentre(zoomRef.current * factor),
+      fitWidth: () => zoomAroundCentre(1),
       getNumPages: () => numPagesRef.current,
       goToPage: (page: number) => {
         const root = scrollRef.current;
@@ -716,32 +691,9 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         }
         return hits;
       },
-    }), [zoomAroundCentre, commitZoom]);
+    }), [zoomAroundCentre]);
 
-    // Fit-whole-page: landscape slides fit the width but run off the bottom on
-    // a phone. In this mode the page is sized so both axes fit the surface.
-    const [fitWholePage, setFitWholePage] = useState(false);
-    // Reset on document switch, then auto-pick the readable default once the
-    // first page's real shape is known: wide slides open fitted whole-page,
-    // A4/portrait pages stay fit-width. The user can still toggle it from the
-    // zoom control (long-press) — `autoFitAppliedRef` makes sure we only pick
-    // the default once per document, never overriding a manual choice.
-    const autoFitAppliedRef = useRef<string | null>(null);
-    useEffect(() => {
-      setFitWholePage(false);
-      autoFitAppliedRef.current = null;
-    }, [url]);
-    useEffect(() => {
-      if (autoFitAppliedRef.current === url) return;
-      if (pageAspect <= 0 || pageWidth <= 0 || surfaceHeight <= 0) return;
-      autoFitAppliedRef.current = url;
-      if (shouldAutoFitPage(pageAspect, pageWidth, surfaceHeight)) setFitWholePage(true);
-    }, [url, pageAspect, pageWidth, surfaceHeight]);
-    const baseWidth = fitWholePage && pageAspect > 0
-      ? computeFitPageBoxWidth(pageAspect, pageWidth, surfaceHeight)
-      : pageWidth;
-    const renderWidth = Math.round(baseWidth * zoom);
-
+    const renderWidth = Math.round(pageWidth * zoom);
 
 
     // ── Zoom memory guard (crash-shield) ────────────────────────────────────
@@ -788,9 +740,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         const visualWidth = window.visualViewport?.width ?? window.innerWidth;
         const visualHeight = window.visualViewport?.height ?? window.innerHeight;
         setPageWidth(computeFitPageWidth(visualWidth, el?.clientWidth ?? 0, visualHeight));
-        setSurfaceHeight(el?.clientHeight && el.clientHeight > 0 ? el.clientHeight : visualHeight);
       };
-
       // The rotation animation resizes the surface over several frames; the
       // last event can still carry a mid-transition width, so re-measure once
       // it has settled.
@@ -1205,17 +1155,6 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         // Keep the document proxy so in-reader search can read page text.
         pdfDocRef.current = doc as unknown as typeof pdfDocRef.current;
         numPagesRef.current = n;
-        // First-page aspect powers "fit whole page" for landscape slides.
-        void (async () => {
-          try {
-            const page = await (doc as unknown as {
-              getPage: (p: number) => Promise<{ getViewport: (o: { scale: number }) => { width: number; height: number } }>;
-            }).getPage(1);
-            const vp = page.getViewport({ scale: 1 });
-            if (vp.width > 0 && vp.height > 0) setPageAspect(vp.width / vp.height);
-          } catch { /* aspect stays unknown → fit-width behaviour */ }
-        })();
-
         if (!sawFirstByte.current) {
           sawFirstByte.current = true;
           onFirstByte?.();
@@ -1559,7 +1498,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         ref={setScrollEl}
         data-archive-virtualized={isArchiveSource(src) ? "true" : undefined}
         className={cn(
-          "nb-pdf-surface absolute inset-0 overflow-y-auto overscroll-contain bg-neutral-100 [&_.react-pdf__Document]:w-full [&_.react-pdf__Page]:!mx-auto [&_.react-pdf__Page]:!w-full [&_.react-pdf__Page]:!max-w-full [&_.react-pdf__Page__canvas]:!h-auto [&_.react-pdf__Page__canvas]:!w-full [&_.react-pdf__Page__canvas]:!max-w-full [&_.react-pdf__Page__canvas]:!block [&_.annotationLayer_section]:!pointer-events-auto dark:bg-neutral-900",
+          "absolute inset-0 overflow-y-auto overscroll-contain bg-neutral-100 [&_.react-pdf__Document]:w-full [&_.react-pdf__Page]:!mx-auto [&_.react-pdf__Page]:!w-full [&_.react-pdf__Page]:!max-w-full [&_.react-pdf__Page__canvas]:!h-auto [&_.react-pdf__Page__canvas]:!w-full [&_.react-pdf__Page__canvas]:!max-w-full [&_.react-pdf__Page__canvas]:!block [&_.annotationLayer_section]:!pointer-events-auto dark:bg-neutral-900",
           zoom > 1 ? "overflow-x-auto" : "overflow-x-hidden"
         )}
         onClick={onSurfaceTap}
@@ -1605,7 +1544,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
                   : PDF_OPTIONS
             }
             loading={
-              <div className="nb-pdf-surface absolute inset-0 h-full w-full bg-neutral-100 motion-safe:animate-[fade-in_180ms_ease-out_120ms_both] dark:bg-neutral-900">
+              <div className="absolute inset-0 h-full w-full bg-neutral-100 motion-safe:animate-[fade-in_180ms_ease-out_120ms_both] dark:bg-neutral-900">
                 {showLoadingOverlay && <ReaderProgress visible title={title} variant="pdf" />}
               </div>
             }

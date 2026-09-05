@@ -256,7 +256,7 @@ export default function AddFromLinkDialog({
           )}
         </div>
 
-        <DialogFooter className="sticky bottom-0 -mx-5 -mb-5 gap-2 border-t bg-background px-5 py-3 sm:gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           {busy ? (
             <Button variant="outline" size="sm" onClick={close}>
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Cancel

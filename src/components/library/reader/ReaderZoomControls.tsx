@@ -7,8 +7,6 @@ interface Props {
   visible: boolean;
   onZoomBy: (factor: number) => void;
   onFitWidth: () => void;
-  /** Long-press the percentage: fit the whole page (landscape slides). */
-  onFitPage?: () => void;
 }
 
 /**
@@ -18,9 +16,7 @@ interface Props {
  * button. Minus steps back toward 100%, which is the hard floor; tapping the
  * percentage resets straight to fit-width.
  */
-export default function ReaderZoomControls({ zoom, visible, onZoomBy, onFitWidth, onFitPage }: Props) {
-  let pressTimer: ReturnType<typeof setTimeout> | null = null;
-  let longPressed = false;
+export default function ReaderZoomControls({ zoom, visible, onZoomBy, onFitWidth }: Props) {
   const atFloor = zoom <= MIN_ZOOM + 0.005;
   return (
     <div
@@ -42,15 +38,8 @@ export default function ReaderZoomControls({ zoom, visible, onZoomBy, onFitWidth
         </button>
         <button
           type="button"
-          aria-label={`Zoom ${Math.round(zoom * 100)} percent — tap to fit width, long-press to fit whole page`}
-          onPointerDown={() => {
-            longPressed = false;
-            if (!onFitPage) return;
-            pressTimer = setTimeout(() => { longPressed = true; void tapHaptic("heavy"); onFitPage(); }, 450);
-          }}
-          onPointerUp={() => { if (pressTimer) clearTimeout(pressTimer); }}
-          onPointerLeave={() => { if (pressTimer) clearTimeout(pressTimer); }}
-          onClick={() => { if (longPressed) { longPressed = false; return; } void tapHaptic("light"); onFitWidth(); }}
+          aria-label={`Zoom ${Math.round(zoom * 100)} percent — tap to fit width`}
+          onClick={() => { void tapHaptic("light"); onFitWidth(); }}
           className="min-w-[56px] rounded-full px-2 py-2 text-sm font-semibold tabular-nums text-foreground active:scale-[0.94]"
         >
           {Math.round(zoom * 100)}%

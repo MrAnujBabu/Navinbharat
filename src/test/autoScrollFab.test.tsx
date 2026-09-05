@@ -58,8 +58,7 @@ describe("AutoScrollFab", () => {
   });
 });
 // The settings sheet is lazy-loaded, so the long-press needs fake timers while
-// the dynamic import needs real ones. Press with fake timers, then restore
-// and pre-resolve the lazy chunk so the sheet renders before findByRole times out.
+// the dynamic import needs real ones. Press with fake timers, then restore.
 async function openSheet() {
   const { act, fireEvent } = await import("@testing-library/react");
   vi.useFakeTimers();
@@ -70,7 +69,6 @@ async function openSheet() {
     vi.advanceTimersByTime(320);
   });
   vi.useRealTimers();
-  await import("../components/viewer/AutoScrollSheet");
   await screen.findByRole("dialog", { name: /autoscroll speed/i });
   return { act, fireEvent };
 }
