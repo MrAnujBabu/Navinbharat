@@ -14,6 +14,9 @@ vi.mock("../services/personalLibrary", () => ({
   addFileToFolder: vi.fn(async (_folder: string, file: File) => ({ id: `item-${file.name}` })),
   addUrlToFolder: vi.fn(async () => ({ id: "item-url" })),
   getOrCreateFolder: vi.fn(async (name: string) => ({ id: `folder-${name}`, name })),
+  // Offline saves rename the item to the user-entered title.
+  renameItem: vi.fn(async () => undefined),
+
 }));
 
 import * as personalLibrary from "../services/personalLibrary";

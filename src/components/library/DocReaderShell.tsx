@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { addUrlToDefaultLibrary } from "../../services/personalLibrary";
 import { lockOrientation, unlockOrientation, shouldCssRotate, isViewportLandscape } from "../../lib/screenOrientation";
 import { tapHaptic, selectionHaptic } from "../../lib/native/haptics";
-import { hideStatusBar, showStatusBar, setStatusBarOverlay, setStatusBarBackground, applyStatusBarForTheme } from "../../lib/nativeChrome";
+import { enterImmersiveStatusBar, exitImmersiveStatusBar } from "../../lib/nativeChrome";
 import { acquireReaderImmersive, enterImmersive, publishNativeBarVars } from "../../lib/androidImmersive";
 import { useReaderFullscreen } from "../../hooks/useReaderFullscreen";
 import { ROTATION_FRAME_ATTR, rotationFrameStyle, notifyPortalHostChanged } from "../../lib/rotationFrame";
@@ -192,11 +192,11 @@ export default function DocReaderShell({
   // a no-op; always restore on unmount so navigating away can never leave
   // the app in hidden-chrome state.
   useEffect(() => {
-    // Overlay mode: if Android reveals a transient bar (edge swipe) it floats
-    // over the page instead of shrinking the WebView and re-adding a strip.
-    void setStatusBarOverlay(true);
-    void setStatusBarBackground("#000000");
-    void hideStatusBar();
+    // One awaited sequence (overlay → dark style → transparent bg → hide).
+    // Firing these as three independent promises let Android re-apply the
+    // themed warm-white bar after the hide — that was the white strip.
+    void enterImmersiveStatusBar();
+
     const releaseImmersive = acquireReaderImmersive();
 
     // Android restores the system bars on rotation / resume / focus, which
@@ -213,7 +213,7 @@ export default function DocReaderShell({
       enterImmersive();
       publishNativeBarVars();
       t = window.setTimeout(() => {
-        void hideStatusBar();
+        void enterImmersiveStatusBar();
         enterImmersive();
         publishNativeBarVars();
       }, 120);
@@ -232,9 +232,7 @@ export default function DocReaderShell({
       window.removeEventListener("focus", reapply);
       window.visualViewport?.removeEventListener("resize", reapply);
       document.removeEventListener("visibilitychange", onVisible);
-      void showStatusBar();
-      void setStatusBarOverlay(false);
-      void applyStatusBarForTheme(
+      void exitImmersiveStatusBar(
         document.documentElement.classList.contains("dark") ? "dark" : "light",
       );
       releaseImmersive();
@@ -555,7 +553,7 @@ export default function DocReaderShell({
         aria-hidden="true"
         data-testid="reader-notch-band"
         className="pointer-events-none fixed inset-x-0 top-0 z-[75] nb-safe-band"
-        style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px))" }}
+        style={{ height: "max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px), var(--nb-status-floor, 0px))" }}
       />
       <div
         aria-hidden="true"
@@ -591,7 +589,11 @@ export default function DocReaderShell({
           // When hidden we ALSO fade + `invisible` it: on Android WebViews the
           // translate alone left a pale sliver of the bar's safe-area padding
           // across the top of locally-opened (offline) PDFs.
-          className={`safe-area-top absolute left-0 right-0 top-0 z-50 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ${
+          // `nb-reader-chrome` paints the bar (and its safe-area padding) with
+          // the dark reader scrim while the full-screen reader is open — the
+          // themed light card colour used to read as a white strip above the
+          // page, especially on landscape slides.
+          className={`nb-reader-chrome safe-area-top absolute left-0 right-0 top-0 z-50 flex min-h-[48px] items-center gap-2 border-b bg-card/95 px-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ${
             headerVisible
               ? "translate-y-0 opacity-100 pointer-events-auto"
               : "-translate-y-full opacity-0 invisible pointer-events-none"
@@ -762,6 +764,7 @@ export default function DocReaderShell({
             visible={headerVisible && !readingMode && !searchOpen}
             onZoomBy={(factor) => viewerRef.current?.zoomBy(factor)}
             onFitWidth={() => viewerRef.current?.fitWidth()}
+            onFitPage={() => viewerRef.current?.fitPage()}
           />
         )}
 

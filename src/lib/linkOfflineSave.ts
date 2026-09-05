@@ -197,6 +197,14 @@ export async function saveLinkOffline({
   });
   const item = await svc.addFileToFolder(folder.id, file, "lesson");
 
+  // Respect the title the user typed in the "Add from link" dialog instead of
+  // leaving the filename-derived title on the saved item.
+  const cleanTitle = title.trim();
+  if (cleanTitle) {
+    await svc.renameItem(item.id, cleanTitle);
+    item.title = cleanTitle;
+  }
+
   emitRefresh();
   return { itemId: item.id, folderName };
 }

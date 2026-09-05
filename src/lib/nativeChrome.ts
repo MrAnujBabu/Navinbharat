@@ -97,6 +97,52 @@ export async function setStatusBarBackground(color: string): Promise<void> {
   await mod.StatusBar.setBackgroundColor({ color }).catch(() => {});
 }
 
+/**
+ * Enter the reader's immersive status-bar state as ONE awaited sequence.
+ *
+ * The three calls used to be fired as independent `void` promises from
+ * DocReaderShell, each doing its own dynamic `import()`. Their resolution
+ * order was not guaranteed, so on Android `setOverlaysWebView(true)` could
+ * land AFTER `hide()` and re-apply window flags that brought the bar back —
+ * painted with the app's warm-white theme colour (`#F7F4EE` from
+ * capacitor.config.ts). That is the white strip above the page.
+ *
+ * Order that actually holds on Android:
+ *   1. overlay = true      → bar floats over the WebView, never reserves a strip
+ *   2. style   = Dark      → light icons, in case the user swipes it back in
+ *   3. background = transparent → nothing white can be painted behind it
+ *   4. hide()              → last, so no later call re-shows it
+ */
+export async function enterImmersiveStatusBar(): Promise<void> {
+  const mod = await loadStatusBar();
+  if (!mod) return;
+  const Capacitor = await getCapacitor();
+  const isAndroid = Capacitor?.getPlatform?.() === "android";
+  const { StatusBar, Style } = mod;
+  await StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+  await StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+  if (isAndroid) {
+    // #AARRGGBB — fully transparent so the black reader surface shows through
+    // even if Android forces the bar back (rotation, resume, edge swipe).
+    await StatusBar.setBackgroundColor({ color: "#00000000" }).catch(() => {});
+  }
+  await StatusBar.hide().catch(() => {});
+}
+
+/**
+ * Leave the immersive status-bar state and hand the bar back to the theme.
+ * Awaited in order for the same reason as above.
+ */
+export async function exitImmersiveStatusBar(theme: "light" | "dark"): Promise<void> {
+  const mod = await loadStatusBar();
+  if (!mod) return;
+  await mod.StatusBar.show().catch(() => {});
+  await mod.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+  await applyStatusBarForTheme(theme);
+}
+
+
+
 export async function applyStatusBarForTheme(theme: "light" | "dark") {
   const Capacitor = await getCapacitor();
   if (!Capacitor?.isNativePlatform?.()) return;

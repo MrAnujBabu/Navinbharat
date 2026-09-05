@@ -41,6 +41,8 @@ export type PdfViewerHandle = {
   getZoom: () => number | null;
   zoomBy: (factor: number) => void;
   fitWidth: () => void;
+  /** Toggle fitting the whole page (both axes) — landscape slides. */
+  fitPage: () => void;
   getNumPages: () => number;
   goToPage: (page: number) => void;
   findPages: (query: string) => Promise<number[]>;
@@ -124,6 +126,7 @@ const PdfViewerInner = forwardRef<PdfViewerHandle, PdfViewerProps>(
         getZoom: () => pdfRef.current?.getZoom() ?? null,
         zoomBy: (factor: number) => pdfRef.current?.zoomBy(factor),
         fitWidth: () => pdfRef.current?.fitWidth(),
+        fitPage: () => pdfRef.current?.fitPage(),
         getNumPages: () => pdfRef.current?.getNumPages() ?? 0,
         goToPage: (page: number) => pdfRef.current?.goToPage(page),
         findPages: async (query: string) => (await pdfRef.current?.findPages(query)) ?? [],
@@ -259,7 +262,7 @@ const PdfViewerInner = forwardRef<PdfViewerHandle, PdfViewerProps>(
           className={
             chromeVisible
               ? "relative w-full overflow-hidden bg-card"
-              : "absolute inset-0 w-full h-full overflow-hidden bg-card"
+              : "nb-pdf-surface absolute inset-0 w-full h-full overflow-hidden bg-card"
           }
           style={
             chromeVisible
@@ -279,7 +282,7 @@ const PdfViewerInner = forwardRef<PdfViewerHandle, PdfViewerProps>(
           className={
             chromeVisible
               ? "relative w-full overflow-hidden bg-card"
-              : "absolute inset-0 w-full h-full overflow-hidden bg-card"
+              : "nb-pdf-surface absolute inset-0 w-full h-full overflow-hidden bg-card"
           }
           style={
             chromeVisible
@@ -300,7 +303,7 @@ const PdfViewerInner = forwardRef<PdfViewerHandle, PdfViewerProps>(
           className={
             chromeVisible
               ? "relative w-full overflow-hidden bg-card landscape:!h-[calc(100dvh-var(--nb-player-h,56.25vw)-env(safe-area-inset-top)-env(safe-area-inset-bottom))] landscape:!min-h-[200px]"
-              : "absolute inset-0 w-full h-full overflow-hidden bg-card"
+              : "nb-pdf-surface absolute inset-0 w-full h-full overflow-hidden bg-card"
           }
           style={
             chromeVisible
@@ -337,7 +340,7 @@ const PdfViewerInner = forwardRef<PdfViewerHandle, PdfViewerProps>(
 
     const wrapperClass = chromeVisible
       ? "relative w-full overflow-hidden bg-card landscape:!h-[calc(100dvh-var(--nb-player-h,56.25vw)-env(safe-area-inset-top)-env(safe-area-inset-bottom))] landscape:!min-h-[200px]"
-      : "absolute inset-0 w-full h-full overflow-hidden bg-card";
+      : "nb-pdf-surface absolute inset-0 w-full h-full overflow-hidden bg-card";
 
     const wrapperStyle: React.CSSProperties = chromeVisible
       ? {

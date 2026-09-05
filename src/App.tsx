@@ -272,6 +272,7 @@ const DeferredChatWidget = () => {
 import BrandMark from "./components/brand/BrandMark";
 import RouteSkeleton from "./components/RouteSkeleton";
 import { startIdlePrefetch } from "./lib/prefetch";
+import { hasStoredSession } from "./lib/storedSession";
 
 
 const PageLoader = memo(() => (
@@ -302,7 +303,10 @@ PageLoader.displayName = "PageLoader";
 // Route guards accept (and ignore) a ref: React logs a console.error when a
 // plain function component is handed one, and in production that console line
 // is forwarded to Sentry as a bogus issue.
-const PublicRoute = forwardRef<unknown, { element: React.ReactElement }>(({ element }, _ref) => {
+const PublicRoute = forwardRef<
+  unknown,
+  { element: React.ReactElement; holdForSession?: boolean }
+>(({ element, holdForSession }, _ref) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   // Do NOT gate public pages behind `isLoading`. Swapping in a PageLoader during
@@ -311,6 +315,12 @@ const PublicRoute = forwardRef<unknown, { element: React.ReactElement }>(({ elem
   // against an empty email (caught by e2e/student-flow.spec.ts). These routes are
   // public, so rendering immediately leaks nothing — an already-signed-in user is
   // redirected as soon as the session resolves.
+  //
+  // Exception (`holdForSession`, used by the landing page): on an app cold start
+  // a persisted session is restored asynchronously, so the marketing landing
+  // page would flash before the redirect — which reads as "the app logged me
+  // out". When a stored token exists we hold a loader for that short window.
+  if (isLoading && holdForSession && hasStoredSession()) return <PageLoader />;
   if (!isLoading && isAuthenticated) {
     // Honour a deep-link the guard interrupted; otherwise land on the dashboard,
     // which is what the sign-in copy ("access your courses") promises.
@@ -386,7 +396,7 @@ const App = () => (
                   <RouteTransitions>
                   <Routes>
                     {/* Public Routes */}
-                    <Route path="/" element={<PublicRoute element={<Index />} />} />
+                    <Route path="/" element={<PublicRoute holdForSession element={<Index />} />} />
                     <Route path="/index" element={<Navigate to="/" replace />} />
                     <Route path="/login" element={<PublicRoute element={<Login />} />} />
                     <Route path="/login-otp" element={<PublicRoute element={<PhoneLogin />} />} />

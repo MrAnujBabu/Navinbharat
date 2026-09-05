@@ -20,7 +20,7 @@ import {
 import { addFileToFolder, getItemUri, getOrCreateFolder } from "@/services/personalLibrary";
 import { addDownload, downloadFileDB, getDownloads } from "@/lib/indexedDB";
 import { resolveDownloadUri } from "@/services/savedDownloads";
-import { computeFitPageWidth } from "@/lib/pdfFit";
+import { computeFitPageWidth, computeFitPageBoxWidth, zoomStorageKey, shouldAutoFitPage, clampStoredZoom } from "@/lib/pdfFit";
 import { shouldCssRotate } from "@/lib/screenOrientation";
 
 
@@ -308,5 +308,52 @@ describe("Suite 9: PDF autoscroll regressions", () => {
     expect(postMessage).toHaveBeenCalledWith({ type: "nb-autoscroll-ping" }, "*");
     expect(postMessage).toHaveBeenCalledWith({ type: "nb-autoscroll-tick", dy: 0.5 }, "*");
     iframe.remove();
+  });
+});
+
+describe("Suite 8b: device-compatible fit", () => {
+  it("fit-whole-page never exceeds the container width", () => {
+    // Landscape slide (16:9) on a tall phone surface.
+    expect(computeFitPageBoxWidth(16 / 9, 400, 900)).toBe(400);
+  });
+
+  it("fit-whole-page shrinks a landscape slide to the visible height", () => {
+    // Wide slide in a short (landscape) surface: 300px tall * 16/9 = 533 < 800.
+    expect(computeFitPageBoxWidth(16 / 9, 800, 300)).toBe(533);
+  });
+
+  it("falls back to fit-width when the aspect or height is unknown", () => {
+    expect(computeFitPageBoxWidth(0, 700, 900)).toBe(700);
+    expect(computeFitPageBoxWidth(1.4, 700, 0)).toBe(700);
+  });
+
+  it("zoom is remembered per document, not globally", () => {
+    expect(zoomStorageKey("https://a/one.pdf")).not.toBe(zoomStorageKey("https://a/two.pdf"));
+    expect(zoomStorageKey("https://a/one.pdf")).toBe(zoomStorageKey("https://a/one.pdf"));
+    expect(zoomStorageKey("https://a/one.pdf").startsWith("nb_pdf_zoom:")).toBe(true);
+  });
+});
+
+describe("fit defaults across page shapes and screens", () => {
+  it("keeps A4 portrait pages on fit-width (small phone)", () => {
+    // A4 ratio ≈ 0.707, phone surface 360x640
+    expect(shouldAutoFitPage(210 / 297, 360, 640)).toBe(false);
+  });
+  it("fits a wide lecture slide whole-page on a phone", () => {
+    expect(shouldAutoFitPage(16 / 9, 360, 640)).toBe(true);
+  });
+  it("keeps a 16:9 slide on fit-width when the screen is landscape", () => {
+    expect(shouldAutoFitPage(16 / 9, 800, 400)).toBe(false);
+  });
+  it("ignores unknown or invalid inputs", () => {
+    expect(shouldAutoFitPage(0, 360, 640)).toBe(false);
+    expect(shouldAutoFitPage(1.4, 0, 640)).toBe(false);
+    expect(shouldAutoFitPage(1.4, 360, 0)).toBe(false);
+  });
+  it("clamps a stored zoom into the usable range", () => {
+    expect(clampStoredZoom(2, 1, 4)).toBe(2);
+    expect(clampStoredZoom(9, 1, 4)).toBe(4);
+    expect(clampStoredZoom(0.2, 1, 4)).toBe(1);
+    expect(clampStoredZoom(Number.NaN, 1, 4)).toBe(1);
   });
 });

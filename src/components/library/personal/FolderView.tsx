@@ -409,11 +409,16 @@ export default function FolderView({ folder, allFolders, onRefreshOuter, sort = 
                       : fmtBytes(it.size_bytes)}{" "}
                     · {new Date(it.added_at).toLocaleDateString()}
                   </span>
-                  {it.source === "link" && (
+                  {it.source === "link" ? (
                     <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                       Online
                     </span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      Offline
+                    </span>
                   )}
+
                   <PriorityBadgeChip itemKey={priorityKeyForPersonalItem(it.id)} />
                 </div>
               </div>
