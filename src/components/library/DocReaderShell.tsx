@@ -291,9 +291,52 @@ export default function DocReaderShell({
   useEffect(() => () => { if (landscapeRef.current) unlockOrientation().catch(() => {}); }, []);
 
 
+  /** Full-page reading: fullscreen button, or landscape in the compact
+      My Library shell. Both must drop the title bar completely. */
+  const fullPage = isFullscreen || (libraryLocalMode && landscapeActive);
+
   useEffect(() => {
-    setHeaderVisible(!isFullscreen);
-  }, [isFullscreen]);
+    setHeaderVisible(!fullPage);
+  }, [fullPage]);
+
+  // My Library (local) shell keeps the normal app chrome while reading in
+  // portrait — no black bands, no immersive mode. But in full-page mode the
+  // Android status bar is exactly the strip the user sees, so hide it for as
+  // long as full-page lasts and always restore it afterwards.
+  useEffect(() => {
+    if (!libraryLocalMode || !fullPage) return;
+    void setStatusBarOverlay(true);
+    void hideStatusBar();
+    const releaseImmersive = acquireReaderImmersive();
+    let t: number | null = null;
+    const reapply = () => {
+      if (t) window.clearTimeout(t);
+      enterImmersive();
+      t = window.setTimeout(() => {
+        void hideStatusBar();
+        enterImmersive();
+      }, 120);
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
+    window.addEventListener("orientationchange", reapply);
+    window.addEventListener("resize", reapply);
+    window.addEventListener("focus", reapply);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      if (t) window.clearTimeout(t);
+      window.removeEventListener("orientationchange", reapply);
+      window.removeEventListener("resize", reapply);
+      window.removeEventListener("focus", reapply);
+      document.removeEventListener("visibilitychange", onVisible);
+      void showStatusBar();
+      void setStatusBarOverlay(false);
+      void applyStatusBarForTheme(
+        document.documentElement.classList.contains("dark") ? "dark" : "light",
+      );
+      releaseImmersive();
+    };
+  }, [libraryLocalMode, fullPage]);
+
 
   // ── Rotate FAB ──────────────────────────────────────────────────────────
   // `lockOrientation` resolves false on desktop/most mobile browsers (no
@@ -463,6 +506,8 @@ export default function DocReaderShell({
     const now = Date.now();
     if (now - lastTapRef.current < 350) return;
     lastTapRef.current = now;
+    // Full-page mode means full page: a stray tap must not bring the bar back.
+    if (fullPage) return;
     setHeaderVisible((v) => {
       const next = !v;
       if (next) scheduleHide();
