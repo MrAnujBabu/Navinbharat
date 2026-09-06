@@ -298,6 +298,14 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
   .nb-library-reader-stage .bg-background {
     background-color: hsl(var(--muted)) !important;
   }
+  /* react-pdf paints its own white placeholders behind pages; inside the
+     library reader any gap (e.g. while landscape relayout settles) must show
+     the reader colour, never a white strip. */
+  .nb-library-reader-stage .react-pdf__Document,
+  .nb-library-reader-stage .react-pdf__Page,
+  .nb-library-reader-stage .react-pdf__Page__canvas {
+    background-color: hsl(var(--muted)) !important;
+  }
   /* The root element paints the band behind the status bar / notch in the
      browser — leave it white and a strip bleeds through above the reader. */
   html:has(body.nb-doc-reader-open) {
