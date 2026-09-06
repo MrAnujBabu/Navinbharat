@@ -71,6 +71,8 @@ export default function DocReaderShell({
   /** True when the OS/browser refused the orientation lock and we rotate in CSS. */
   const [pseudoLandscape, setPseudoLandscape] = useState(false);
   const [autoActive, setAutoActive] = useState(false);
+  /** Host node for the header-docked autoscroll control (full-page library reader). */
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   /** In-reader text search (canvas reader only). */
   const [searchOpen, setSearchOpen] = useState(false);
   /** Committed zoom factor reported by the canvas reader (1 = fit width). */
@@ -760,7 +762,10 @@ export default function DocReaderShell({
         {libraryLocalMode && fullPage && (
           <div
             data-testid="reader-fullpage-toolbar"
-            className="fixed left-2 top-2 z-[76] flex items-center gap-1 rounded-md border bg-card/90 p-1 shadow-md backdrop-blur"
+            className={`fixed left-2 right-2 top-2 z-[76] flex items-center gap-1 rounded-md border bg-card/95 p-1 shadow-md backdrop-blur transition-opacity duration-200 ${
+              headerVisible && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+            aria-hidden={!headerVisible}
             onClick={(event) => event.stopPropagation()}
           >
             <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back" className="h-10 w-10">
@@ -780,6 +785,33 @@ export default function DocReaderShell({
             >
               <Search className="h-5 w-5" />
             </Button>
+
+            <span className="flex-1" />
+
+            {/* Autoscroll docks here instead of floating over the page. */}
+            <div ref={setHeaderSlot} data-testid="reader-header-autoscroll-slot" className="flex items-center" />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { void toggleLandscape(); scheduleHide(); }}
+              aria-label={landscape ? "Exit landscape" : "Rotate to landscape"}
+              aria-pressed={landscape}
+              className="h-10 w-10"
+            >
+              <RotatePhoneIcon className={`h-5 w-5 transition-transform ${landscape ? "rotate-90" : ""}`} />
+            </Button>
+            {!hideDownload && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => { void tapHaptic("light"); handleSave(e); }}
+                aria-label="Save to device"
+                className="h-10 w-10"
+              >
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+              </Button>
+            )}
             {!forcedFullPage && (
               <Button variant="ghost" size="icon" onClick={() => void toggleFullscreen()} aria-label="Exit fullscreen" className="h-10 w-10">
                 <Minimize2 className="h-5 w-5" />
@@ -871,7 +903,8 @@ export default function DocReaderShell({
           showPageChip={!landscapeActive}
           // Full-page is distraction-free, not control-free: autoscroll must
           // remain reachable in both portrait and landscape.
-          visible={fullPage || headerVisible || autoActive}
+          visible={libraryLocalMode && fullPage ? true : fullPage || headerVisible || autoActive}
+          autoScrollAnchorEl={libraryLocalMode && fullPage ? headerSlot : null}
           onActiveChange={(a) => {
             setAutoActive(a);
             if (a) setHeaderVisible(false);
@@ -915,7 +948,13 @@ export default function DocReaderShell({
           aria-pressed={landscape}
           title="Rotate to landscape"
           style={{ bottom: hideDownload ? "calc(env(safe-area-inset-bottom, 0px) + 20px)" : "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
-          className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${fullPage || headerVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${
+            libraryLocalMode && fullPage
+              ? "hidden"
+              : fullPage || headerVisible
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
+          }`}
         >
           <RotatePhoneIcon className={`h-7 w-7 transition-transform drop-shadow-md ${landscape ? "rotate-90" : ""}`} />
         </button>
@@ -923,7 +962,11 @@ export default function DocReaderShell({
 
         <div
           className={`transition-opacity duration-300 ${
-            (fullPage || headerVisible) && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"
+            libraryLocalMode && fullPage
+              ? "hidden"
+              : (fullPage || headerVisible) && !readingMode
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
           }`}
         >
           {!hideDownload && (

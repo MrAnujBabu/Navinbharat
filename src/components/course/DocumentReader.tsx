@@ -370,11 +370,31 @@ const DocumentReader = memo(
         if (!pdfLifecycleMatches(e, readerId)) return;
         updateHealth("loading", "pdf-proxy", (e as CustomEvent<Record<string, unknown>>).detail);
       };
+      /**
+       * A failure the reader itself already resolved in-place (e.g. a
+       * download-disabled Drive file that now shows Drive's own read-only
+       * preview) must NOT raise this shell's error card or toast — they
+       * covered a document the student could otherwise read.
+       */
+      const onHandled = (e: Event) => {
+        if (!pdfLifecycleMatches(e, readerId)) return;
+        if (errorTimerRef.current) {
+          clearTimeout(errorTimerRef.current);
+          errorTimerRef.current = null;
+        }
+        setErrorMsg(null);
+        toast.dismiss("reader-load-error");
+        markPdfProgress();
+      };
       const onErr = (e: Event) => {
         if (!pdfLifecycleMatches(e, readerId)) return;
         const detail = (e as CustomEvent<PdfLifecycleDetail>).detail;
         const message = detail?.message;
         updateHealth("error", "pdf-error", { detail });
+        if (detail?.handled) {
+          onHandled(e);
+          return;
+        }
         const text = typeof message === "string" ? message : "The document failed to load.";
         setErrorMsg(text);
         // Toast + Retry CTA in addition to the full-screen card: on a rotated
@@ -397,12 +417,15 @@ const DocumentReader = memo(
       window.addEventListener("pdf-first-byte", onFirstByte);
       window.addEventListener("pdf-progress", onProgress as EventListener);
       window.addEventListener("pdf-proxy", onProxy as EventListener);
+      window.addEventListener("pdf-handled", onHandled as EventListener);
       window.addEventListener("pdf-error", onErr as EventListener);
+
       return () => {
         window.removeEventListener("pdf-ready", onReady);
         window.removeEventListener("pdf-first-byte", onFirstByte);
         window.removeEventListener("pdf-progress", onProgress as EventListener);
         window.removeEventListener("pdf-proxy", onProxy as EventListener);
+        window.removeEventListener("pdf-handled", onHandled as EventListener);
         window.removeEventListener("pdf-error", onErr as EventListener);
       };
     }, [loadTimeoutMs, markFirstByte, markPdfProgress, readerId, scheduleLoadTimeout, updateHealth]);

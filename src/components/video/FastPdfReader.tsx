@@ -437,6 +437,18 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       const preview = drivePreviewFromSource(src);
       if (preview) setDrivePreviewUrl(preview);
     }, [error, drivePreviewUrl, src]);
+
+    /**
+     * Once the read-only Drive preview is on screen the failure is fully
+     * handled INSIDE the reader. Tell the host shell so it drops its own
+     * "Couldn't load the document" overlay + toast, which otherwise covered
+     * the perfectly readable preview.
+     */
+    useEffect(() => {
+      if (!drivePreviewUrl) return;
+      emitPdfLifecycle("pdf-handled", readerId, { message: error ?? undefined, handled: true });
+    }, [drivePreviewUrl, error, readerId]);
+
     const route = readerRouteForUrl(url);
 
     useEffect(() => () => {
@@ -1116,7 +1128,7 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
         // the async probe runs.
         const driveBlock = await probeDriveBlock(src);
         if (driveBlock) {
-          emitPdfLifecycle("pdf-error", readerId, { message: driveBlock.message });
+          emitPdfLifecycle("pdf-error", readerId, { message: driveBlock.message, handled: true });
           setError(driveBlock.message);
           setErrorAction({ label: "Open in Drive", url: driveBlock.viewUrl, exclusive: true });
           setDrivePreviewUrl(drivePreviewFromViewUrl(driveBlock.viewUrl));

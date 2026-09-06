@@ -26,6 +26,8 @@ interface Props {
   keyboardInset?: number;
   /** Landscape readers hide the page chip so it never covers page text. */
   showPageChip?: boolean;
+  /** Dock the autoscroll control into the reader header instead of floating it. */
+  autoScrollAnchorEl?: HTMLElement | null;
 }
 
 /**
@@ -44,6 +46,7 @@ export default function ReaderOverlays({
   docKey,
   keyboardInset = 0,
   showPageChip = true,
+  autoScrollAnchorEl,
 }: Props): JSX.Element {
   return (
     <>
@@ -54,6 +57,7 @@ export default function ReaderOverlays({
         onActiveChange={onActiveChange}
         visible={visible}
         docKey={docKey}
+        anchorEl={autoScrollAnchorEl}
       />
       {showPageChip && (
         <PageIndicatorPill targetRef={targetRef} iframeRef={iframeRef} pinned={pinned} />

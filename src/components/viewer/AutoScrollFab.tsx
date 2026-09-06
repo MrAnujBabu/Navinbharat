@@ -30,6 +30,12 @@ interface Props {
   visible?: boolean;
   /** Stable per-document id — enables per-doc speed + auto-resume via localStorage. */
   docKey?: string;
+  /**
+   * Optional host element to dock the control into (e.g. the reader header).
+   * When set the control renders as a compact header button instead of a
+   * floating action button, so it never covers page text.
+   */
+  anchorEl?: HTMLElement | null;
 }
 
 /** Re-exported so existing importers keep one entry point for the clamp ceiling. */
@@ -41,7 +47,7 @@ export { MAX_SPEED };
  * - Long-press (≥280ms) → open speed picker (presets + fine slider, 0.01 step,
  *   floor 0.02x for ultra-slow reading)
  */
-export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84, onActiveChange, visible = true, docKey }: Props): JSX.Element | null {
+export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84, onActiveChange, visible = true, docKey, anchorEl }: Props): JSX.Element | null {
   const host = usePortalHost();
   const {
     active,
@@ -356,19 +362,25 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
         onPointerUp={onPointerUp}
         onClick={(e) => e.stopPropagation()}
         data-autoscroll-fab="true"
-        className={`fixed right-4 sm:right-5 z-[68] flex h-12 w-12 select-none items-center justify-center rounded-full shadow-lg ring-1 ring-black/10 transition-all duration-200 active:scale-95 ${
-          effectiveVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        } ${
-          active
-            ? "bg-primary text-primary-foreground ring-2 ring-primary"
-            : "bg-card text-foreground"
-        }`}
-        style={{ bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))` }}
+        className={
+          anchorEl
+            ? `flex h-10 w-10 select-none items-center justify-center rounded-md transition-colors active:scale-95 ${
+                active ? "bg-primary text-primary-foreground" : "text-foreground"
+              }`
+            : `fixed right-4 sm:right-5 z-[68] flex h-12 w-12 select-none items-center justify-center rounded-full shadow-lg ring-1 ring-black/10 transition-all duration-200 active:scale-95 ${
+                effectiveVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+              } ${
+                active
+                  ? "bg-primary text-primary-foreground ring-2 ring-primary"
+                  : "bg-card text-foreground"
+              }`
+        }
+        style={anchorEl ? undefined : { bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))` }}
       >
         {reverse ? (
-          <ChevronsUp className="h-6 w-6" aria-hidden="true" />
+          <ChevronsUp className={anchorEl ? "h-5 w-5" : "h-6 w-6"} aria-hidden="true" />
         ) : (
-          <ChevronsDown className="h-6 w-6" aria-hidden="true" />
+          <ChevronsDown className={anchorEl ? "h-5 w-5" : "h-6 w-6"} aria-hidden="true" />
         )}
       </button>
 
@@ -407,5 +419,5 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
   );
 
   if (typeof document === "undefined") return fab;
-  return createPortal(fab, host ?? document.body) as unknown as JSX.Element;
+  return createPortal(fab, anchorEl ?? host ?? document.body) as unknown as JSX.Element;
 }
