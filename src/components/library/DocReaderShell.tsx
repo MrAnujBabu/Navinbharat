@@ -904,7 +904,9 @@ export default function DocReaderShell({
           // Full-page is distraction-free, not control-free: autoscroll must
           // remain reachable in both portrait and landscape.
           visible={libraryLocalMode && fullPage ? true : fullPage || headerVisible || autoActive}
-          autoScrollAnchorEl={libraryLocalMode && fullPage ? headerSlot : null}
+          // My Library full-page: autoscroll floats over the page so it stays
+          // reachable even after the header auto-hides.
+          autoScrollAnchorEl={null}
           onActiveChange={(a) => {
             setAutoActive(a);
             if (a) setHeaderVisible(false);
@@ -950,7 +952,7 @@ export default function DocReaderShell({
           style={{ bottom: hideDownload ? "calc(env(safe-area-inset-bottom, 0px) + 20px)" : "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
           className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${
             libraryLocalMode && fullPage
-              ? "hidden"
+              ? "opacity-100"
               : fullPage || headerVisible
                 ? "opacity-100"
                 : "pointer-events-none opacity-0"
@@ -963,7 +965,7 @@ export default function DocReaderShell({
         <div
           className={`transition-opacity duration-300 ${
             libraryLocalMode && fullPage
-              ? "hidden"
+              ? "opacity-100"
               : (fullPage || headerVisible) && !readingMode
                 ? "opacity-100"
                 : "pointer-events-none opacity-0"

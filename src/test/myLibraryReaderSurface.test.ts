@@ -34,14 +34,13 @@ describe("My Library compact local PDF surface", () => {
     expect(localEffect).not.toContain("hideStatusBar()");
   });
 
-  it("docks autoscroll, download and rotate into the auto-hiding header in local full-page mode", () => {
-    // Autoscroll portals into the header slot instead of floating over text.
-    expect(shell).toContain('data-testid="reader-header-autoscroll-slot"');
-    expect(shell).toContain("autoScrollAnchorEl={libraryLocalMode && fullPage ? headerSlot : null}");
-    // Download + rotate live in the header; their floating twins are removed.
+  it("keeps autoscroll, download and rotate reachable in local full-page mode", () => {
+    // Autoscroll floats over the page instead of hiding with the header.
+    expect(shell).toContain("autoScrollAnchorEl={null}");
+    // Download + rotate FABs stay visible in local full-page mode.
     expect(shell).toContain('aria-label="Save to device"');
     expect(shell).toContain('aria-label={landscape ? "Exit landscape" : "Rotate to landscape"}');
-    expect(shell).toContain('libraryLocalMode && fullPage\n              ? "hidden"');
+    expect(shell).not.toContain('libraryLocalMode && fullPage\n              ? "hidden"');
     // The header itself auto-hides with the reader chrome.
     expect(shell).toContain('headerVisible && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"');
   });
