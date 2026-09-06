@@ -259,10 +259,12 @@ export default function DocReaderShell({
   /** Search must never auto-hide under the user's thumb mid-query. */
   const searchOpenRef = useRef(false);
   useEffect(() => { searchOpenRef.current = searchOpen; }, [searchOpen]);
+  const notesOpenRef = useRef(false);
+  useEffect(() => { notesOpenRef.current = notesOpen; }, [notesOpen]);
   const scheduleHide = () => {
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
-      if (searchOpenRef.current) return;
+      if (searchOpenRef.current || notesOpenRef.current) return;
       setHeaderVisible(false);
     }, 2500);
   };
@@ -325,8 +327,24 @@ export default function DocReaderShell({
     if (!libraryLocalMode || !fullPage) return;
     const releaseImmersive = acquireReaderImmersive();
     document.body.classList.add("nb-library-reader-fullpage");
+    // While immersive owns the screen there is no status/nav bar, so no
+    // synthetic bar gutter may exist anywhere: a stale --nb-sysbar-top floor
+    // (published before immersive settled) painted the persistent pale strip
+    // above the PDF in landscape. Pin both vars to 0 for the whole full-page
+    // session and restore them on exit.
+    const rootEl = document.documentElement;
+    const prevBarTop = rootEl.style.getPropertyValue("--nb-sysbar-top");
+    const prevBarBottom = rootEl.style.getPropertyValue("--nb-sysbar-bottom");
+    const zeroBarVars = () => {
+      rootEl.style.setProperty("--nb-sysbar-top", "0px");
+      rootEl.style.setProperty("--nb-sysbar-bottom", "0px");
+    };
+    zeroBarVars();
     const applyFullPageChrome = () => {
       enterImmersive();
+      // enterImmersive() re-publishes the real bar heights — zero them again
+      // synchronously so no frame can paint with a stale inset.
+      zeroBarVars();
     };
     applyFullPageChrome();
     let t: number | null = null;
@@ -347,6 +365,10 @@ export default function DocReaderShell({
       window.removeEventListener("focus", reapply);
       document.removeEventListener("visibilitychange", onVisible);
       document.body.classList.remove("nb-library-reader-fullpage");
+      if (prevBarTop) rootEl.style.setProperty("--nb-sysbar-top", prevBarTop);
+      else rootEl.style.removeProperty("--nb-sysbar-top");
+      if (prevBarBottom) rootEl.style.setProperty("--nb-sysbar-bottom", prevBarBottom);
+      else rootEl.style.removeProperty("--nb-sysbar-bottom");
       releaseImmersive();
       void applyStatusBarForTheme(
         document.documentElement.classList.contains("dark") ? "dark" : "light",
@@ -523,8 +545,10 @@ export default function DocReaderShell({
     const now = Date.now();
     if (now - lastTapRef.current < 350) return;
     lastTapRef.current = now;
-    // Full-page mode means full page: a stray tap must not bring the bar back.
-    if (fullPage) return;
+    // My Library full-page: tap toggles the floating toolbar + FABs back on —
+    // without this the header hid after 2.5s idle and could never return.
+    // Non-library fullscreen surfaces keep the old "no stray bar" behaviour.
+    if (fullPage && !libraryLocalMode) return;
     setHeaderVisible((v) => {
       const next = !v;
       if (next) scheduleHide();
@@ -785,6 +809,16 @@ export default function DocReaderShell({
             >
               <Search className="h-5 w-5" />
             </Button>
+            <Button
+              variant={readingMode ? "secondary" : "ghost"}
+              size="icon"
+              onClick={toggleReadingMode}
+              aria-label="Reading mode"
+              aria-pressed={readingMode}
+              className="h-10 w-10"
+            >
+              <BookOpen className="h-5 w-5" />
+            </Button>
 
             <span className="flex-1" />
 
@@ -903,7 +937,7 @@ export default function DocReaderShell({
           showPageChip={!landscapeActive}
           // Full-page is distraction-free, not control-free: autoscroll must
           // remain reachable in both portrait and landscape.
-          visible={libraryLocalMode && fullPage ? true : fullPage || headerVisible || autoActive}
+          visible={libraryLocalMode && fullPage ? headerVisible || autoActive : fullPage || headerVisible || autoActive}
           // My Library full-page: autoscroll floats over the page so it stays
           // reachable even after the header auto-hides.
           autoScrollAnchorEl={null}
@@ -952,7 +986,10 @@ export default function DocReaderShell({
           style={{ bottom: hideDownload ? "calc(env(safe-area-inset-bottom, 0px) + 20px)" : "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
           className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${
             libraryLocalMode && fullPage
-              ? "opacity-100"
+              ? // Same idle hide as autoscroll: tap the page to bring it back.
+                headerVisible
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
               : fullPage || headerVisible
                 ? "opacity-100"
                 : "pointer-events-none opacity-0"
@@ -965,7 +1002,10 @@ export default function DocReaderShell({
         <div
           className={`transition-opacity duration-300 ${
             libraryLocalMode && fullPage
-              ? "opacity-100"
+              ? // Same idle hide as autoscroll: tap the page to bring it back.
+                headerVisible
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
               : (fullPage || headerVisible) && !readingMode
                 ? "opacity-100"
                 : "pointer-events-none opacity-0"
