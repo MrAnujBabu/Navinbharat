@@ -18,8 +18,15 @@ import {
   sanitizeRemoteUrl,
 } from "./pdfViewerUrl";
 import { safeGetJSON, safeSetJSON } from "./storage";
+import {
+  isNcertUrl,
+  ncertChapterPdfUrls,
+  ncertChapterTitle,
+  normalizeNcertUrl,
+  parseNcertTextbookUrl,
+} from "./ncertLinks";
 
-export type LinkSource = "drive" | "docs" | "notion" | "archive" | "cdn" | "web";
+export type LinkSource = "drive" | "docs" | "notion" | "archive" | "ncert" | "cdn" | "web";
 
 export interface SavedLink {
   id: string;
@@ -38,6 +45,7 @@ export const SOURCE_LABEL: Record<LinkSource, string> = {
   docs: "Google Docs",
   notion: "Notion",
   archive: "Archive.org",
+  ncert: "NCERT",
   cdn: "CDN / direct file",
   web: "Web link",
 };
@@ -55,6 +63,7 @@ export function classifyLink(raw: string): LinkSource {
   if (isGoogleDocs(url)) return "docs";
   if (isGoogleDrive(url)) return "drive";
   if (isArchiveOrg(url)) return "archive";
+  if (isNcertUrl(url)) return "ncert";
   if (CDN_HOST_RE.test(url) || PDF_RE.test(url) || OFFICE_RE.test(url)) return "cdn";
   return "web";
 }
@@ -62,6 +71,7 @@ export function classifyLink(raw: string): LinkSource {
 /** File-type label understood by UniversalFileViewer.classify(). */
 export function kindForLink(url: string, source: LinkSource): string {
   if (source === "notion" || source === "drive" || source === "docs") return "PDF";
+  if (source === "ncert") return "PDF";
   if (PDF_RE.test(url)) return "PDF";
   if (OFFICE_RE.test(url)) return url.match(OFFICE_RE)![1].toUpperCase();
   if (MD_RE.test(url)) return "MD";
@@ -73,7 +83,7 @@ export function kindForLink(url: string, source: LinkSource): string {
 /** Only links that resolve to real bytes can be stored for offline reading. */
 export function canSaveOffline(url: string, source: LinkSource): boolean {
   if (source === "notion") return false;
-  if (source === "drive" || source === "docs" || source === "archive") return true;
+  if (source === "drive" || source === "docs" || source === "archive" || source === "ncert") return true;
   return PDF_RE.test(url) || OFFICE_RE.test(url) || MD_RE.test(url) || IMG_RE.test(url);
 }
 
@@ -83,6 +93,8 @@ export interface ParsedLink {
   kind: string;
   title: string;
   offlineCapable: boolean;
+  /** Extra documents the link expands to (NCERT chapter ranges). */
+  chapters?: { url: string; title: string }[];
 }
 
 /** Validate + normalise a pasted link. Throws a user-facing error when bad. */
@@ -101,7 +113,10 @@ export function parseLink(raw: string, titleHint?: string): ParsedLink {
   }
   if (!/^https?:$/.test(parsed.protocol)) throw new Error("Only http/https links are supported.");
 
-  const url = sanitizeRemoteUrl(parsed.toString());
+  // NCERT chapter-list pages are HTML with X-Frame-Options: SAMEORIGIN.
+  // Resolve them to the real chapter PDFs before anything else looks at them.
+  const raw0 = sanitizeRemoteUrl(parsed.toString());
+  const url = normalizeNcertUrl(raw0);
   const source = classifyLink(url);
   const kind = kindForLink(url, source);
   const guessed =
@@ -109,12 +124,24 @@ export function parseLink(raw: string, titleHint?: string): ParsedLink {
       .replace(/\.[a-z0-9]+$/i, "")
       .replace(/[-_]+/g, " ")
       .trim() || SOURCE_LABEL[source];
+  const book = parseNcertTextbookUrl(raw0);
+  const chapters =
+    book && book.chapters.length > 1
+      ? ncertChapterPdfUrls(raw0).map((u, i) => ({
+          url: u,
+          title: ncertChapterTitle(book.code, book.chapters[i]!),
+        }))
+      : undefined;
+
   return {
     url,
     source,
     kind,
-    title: (titleHint || "").trim() || guessed,
+    title:
+      (titleHint || "").trim() ||
+      (book ? ncertChapterTitle(book.code, book.chapters[0]!) : guessed),
     offlineCapable: canSaveOffline(url, source),
+    chapters,
   };
 }
 
@@ -189,6 +216,8 @@ const RELAYABLE_HOSTS = [
   /(^|\.)drive\.google\.com$/i,
   /(^|\.)docs\.google\.com$/i,
   /(^|\.)notion\.(so|site)$/i,
+  // NCERT textbook PDFs — no CORS headers upstream, so bytes are relayed.
+  /(^|\.)ncert\.(nic|org)\.in$/i,
 ];
 
 export function isProxyRelayable(url: string): boolean {
