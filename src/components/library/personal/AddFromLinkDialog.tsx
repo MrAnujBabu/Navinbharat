@@ -118,15 +118,25 @@ export default function AddFromLinkDialog({
       const { addLinkToFolder, emitLibraryRefresh } = await import(
         "../../../services/personalLibrary"
       );
-      await addLinkToFolder(target, {
-        url: preview.value.url,
-        title: preview.value.title,
-        source: preview.value.source,
-        kind: preview.value.kind,
-      });
+      // An NCERT chapter-range link expands into one PDF per chapter.
+      const items = preview.value.chapters?.length
+        ? preview.value.chapters
+        : [{ url: preview.value.url, title: preview.value.title }];
+      for (const item of items) {
+        await addLinkToFolder(target, {
+          url: item.url,
+          title: item.title,
+          source: preview.value.source,
+          kind: preview.value.kind,
+        });
+      }
       emitLibraryRefresh();
       onSaved();
-      toast.success("Link added to your library");
+      toast.success(
+        items.length > 1
+          ? `${items.length} chapters added to your library`
+          : "Link added to your library",
+      );
       onOpenChange(false);
       reset();
     } catch (err) {
@@ -183,7 +193,7 @@ export default function AddFromLinkDialog({
             <Link2 className="h-4 w-4" /> Add from link
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Google Drive, Notion, Archive.org or a direct PDF/CDN link. It lands in a folder like any
+            Google Drive, Notion, Archive.org, NCERT textbooks or a direct PDF/CDN link. It lands in a folder like any
             other file — read it online, or keep an offline copy.
           </DialogDescription>
         </DialogHeader>
