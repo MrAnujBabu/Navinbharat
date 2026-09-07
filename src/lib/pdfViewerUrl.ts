@@ -14,6 +14,7 @@ import { supabaseFunctionsUrl } from "@/integrations/supabase/runtime";
 const functionUrl = (name: string): string => supabaseFunctionsUrl(name);
 
 import { supabase } from "@/integrations/supabase/client";
+import { isNcertUrl, normalizeNcertUrl } from "./ncertLinks";
 
 /**
  * Cached Supabase access token. pdf-proxy is authenticated but pdf.js loads
@@ -321,7 +322,9 @@ export const googleDocsPdfProxyUrl = (url: string): string | null => {
  * them with googleDrivePdfProxyUrl() before FastPdfReader mounts.
  */
 export const renderablePdfUrl = (rawUrl: string): string => {
-  const url = sanitizeRemoteUrl(rawUrl);
+  const url = normalizeNcertUrl(sanitizeRemoteUrl(rawUrl));
+  // NCERT serves PDFs without CORS headers — always relay through pdf-proxy.
+  if (isNcertUrl(url)) return remotePdfProxyUrl(url);
   const gdoc = googleDocsPdfProxyUrl(url);
   if (gdoc) return gdoc;
   if (isArchiveOrg(url) && !hasPdfPath(url)) {
