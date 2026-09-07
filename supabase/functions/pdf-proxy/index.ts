@@ -895,6 +895,10 @@ const ALLOWED_HOSTS = [
   // Range-streamable and CORS-open, so the client renders it directly; this
   // entry only keeps the proxy fallback (and redirect re-validation) legal.
   /(^|\.)crwilladmin\.com$/i,
+  // NCERT textbook PDFs (ncert.nic.in/textbook/pdf/<code><nn>.pdf). Public and
+  // range-streamable, but CORS-closed — the bytes must be relayed.
+  /(^|\.)ncert\.nic\.in$/i,
+  /(^|\.)ncert\.org\.in$/i,
 ];
 
 /**
