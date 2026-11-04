@@ -252,7 +252,10 @@ async function authorizeUrl(userId: string, url: string): Promise<boolean> {
   // Unknown URL — not tied to any paid content row. Deny by default so
   // the proxy can't be used to bypass future paywalls; add explicit rows
   // if a URL needs to be freely accessible.
-  if (courseIds.size === 0) return false;
+  // A URL not referenced by any course content is not paywalled - it is a
+  // public, allow-listed link a student added to their own library. Let the
+  // signed-in caller read it; paid rows above still require enrollment.
+  if (courseIds.size === 0) return lessonIds.size === 0;
 
   const { data: enr } = await adminClient
     .from("enrollments").select("course_id")
