@@ -27,6 +27,7 @@ import {
 import { Button } from "../../ui/button";
 import { toast } from "sonner";
 import { safeGet, safeSet } from "../../../lib/storage";
+import { refreshSignedStorageUrl } from "../../../lib/refreshSignedStorageUrl";
 import { reportError } from "../../../lib/sentry";
 
 
@@ -453,7 +454,11 @@ export default function MyLibrary() {
         folders={allFolders}
         currentFolderId={currentId}
         onSaved={refresh}
-        onRead={(l) => setLinkReader(l)}
+        onRead={(l) => {
+          void refreshSignedStorageUrl(l.url)
+            .catch(() => l.url)
+            .then((url) => setLinkReader({ ...l, url }));
+        }}
       />
 
 
