@@ -28,6 +28,7 @@ import { PriorityBadgeChip } from "../components/library/PriorityBadge";
 import { priorityKeyForDownload, getPriority, priorityRank } from "../lib/itemPriority";
 import CrashShield from "../components/system/CrashShield";
 import { addBreadcrumb } from "../lib/sentry";
+import { refreshSignedStorageUrl } from "../lib/refreshSignedStorageUrl";
 import { tapHaptic, selectionHaptic } from "../lib/native/haptics";
 
 /** Yield to the event loop so long bulk loops never block input (ANR guard). */
@@ -252,7 +253,11 @@ const Downloads = () => {
         return;
       }
     }
-    const finalUrl = uri || item.url;
+    let finalUrl = uri || item.url;
+    // Saved remote links are often expired signed URLs → renew before opening.
+    if (!uri && finalUrl && !finalUrl.startsWith("blob:")) {
+      finalUrl = await refreshSignedStorageUrl(finalUrl).catch(() => finalUrl);
+    }
     if (!finalUrl) {
       toast.error("Could not open file — no source available.");
       setOpening(null);
