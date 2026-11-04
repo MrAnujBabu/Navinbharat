@@ -1,5 +1,6 @@
 import { supabase } from "../integrations/supabase/client";
 import { supabaseRuntimeUrl } from "../integrations/supabase/runtime";
+import { logWarn } from "./log";
 
 /**
  * Downloads and library items store the URL they were saved with. Supabase
@@ -37,7 +38,7 @@ export async function refreshSignedStorageUrl(url: string, ttlSeconds = 60 * 60)
     .from(parsed.bucket)
     .createSignedUrl(parsed.path, ttlSeconds);
   if (error || !data?.signedUrl) {
-    console.warn("[refreshSignedStorageUrl] re-sign failed", parsed, error);
+    logWarn("[refreshSignedStorageUrl] re-sign failed", { bucket: parsed.bucket, error: error?.message });
     return url;
   }
   return data.signedUrl;
