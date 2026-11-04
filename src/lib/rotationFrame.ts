@@ -12,6 +12,7 @@
  * the viewport — that is exactly what we want here.
  */
 import type { CSSProperties } from "react";
+import "./readerInsets.css";
 
 /** Attribute the reader marks on the rotated frame so portals can target it. */
 export const ROTATION_FRAME_ATTR = "data-reader-portal-host";
