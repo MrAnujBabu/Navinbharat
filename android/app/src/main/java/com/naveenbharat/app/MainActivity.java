@@ -66,6 +66,10 @@ public class MainActivity extends BridgeActivity
         });
 
         // `src/lib/androidImmersive.ts` calls `window.AndroidImmersive`.
+        // Hand Razorpay UPI links (upi:// intent:// phonepe:// tez:// ...) to the
+        // installed UPI app instead of failing with ERR_UNKNOWN_URL_SCHEME, and
+        // recover from renderer death. Ported from JSR RecoveryWebViewClient.
+        getBridge().getWebView().setWebViewClient(new RecoveryWebViewClient(getBridge(), this));
         getBridge().getWebView().addJavascriptInterface(new ImmersiveBridge(), "AndroidImmersive");
     }
 

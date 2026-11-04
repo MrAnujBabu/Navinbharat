@@ -29,6 +29,35 @@ import { logger } from "@/lib/logger";
 import successSound from "@/assets/success.mp3.asset.json";
 import AccessCountdown from "../components/courses/AccessCountdown";
 import { getErrorMessage } from "@/lib/errorMessage";
+import { ExternalLink } from "lucide-react";
+import { rememberPendingPayment } from "../lib/pendingPayment";
+import { APP_LINK_HOSTS } from "@/config/deepLinks";
+
+/**
+ * Opens the SAME Razorpay order in the phone's real browser (`/pay`), where
+ * UPI apps (GPay / PhonePe / Paytm) work. `/pay` deep-links back to the app
+ * on completion; enrollment is granted server-side (webhook / verify), and
+ * `usePaymentResume` + PaymentCallback reconcile access. Ported from JSR.
+ */
+const openBrowserCheckout = async (
+  orderData: { order_id: string; key_id: string; amount: number | string; currency?: string; course_title?: string | null },
+  courseId: string | number,
+  prefill: { name?: string; email?: string; contact?: string },
+): Promise<void> => {
+  const q = new URLSearchParams({
+    order: String(orderData.order_id),
+    key: String(orderData.key_id),
+    amount: String(orderData.amount),
+    currency: String(orderData.currency || "INR"),
+    title: String(orderData.course_title || "Course"),
+    course: String(courseId),
+  });
+  if (prefill.name) q.set("n", prefill.name);
+  if (prefill.email) q.set("e", prefill.email);
+  if (prefill.contact) q.set("p", prefill.contact);
+  const { openExternal } = await import("@/lib/native/browser");
+  await openExternal(`https://${APP_LINK_HOSTS[0]}/pay?${q.toString()}`, { preferWebView: false });
+};
 
 
 const MERCHANT_NAME = "Naveen Bharat";
@@ -277,8 +306,8 @@ const BuyCourse = () => {
 
 
   /**
-   * @param opts.forceWeb  Native builds only: bypass the Razorpay Android SDK
-   *   and use the JS checkout inside the WebView. Needed because Razorpay's
+   * @param opts.forceWeb  Native builds only: open the same order in the phone's
+   *   real browser (`/pay`) so UPI apps work. Needed because Razorpay's
    *   **test mode** has no real UPI PSP handles, so the native sheet hides the
    *   UPI tab entirely while the web checkout still renders UPI (collect/VPA).
    */
@@ -383,6 +412,27 @@ const BuyCourse = () => {
     // intents launch Google Pay / PhonePe / Paytm directly without an
     // in-app browser. Web → fall back to the JS checkout.
     const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform() && opts?.forceWeb) {
+      try {
+        rememberPendingPayment({
+          courseId: Number(courseId),
+          courseTitle: orderData.course_title ?? null,
+          orderId: orderData.order_id,
+        });
+        toast.info("Browser me checkout khul raha hai — UPI apps wahan dikhenge. Payment ke baad app me wapas aa jaana, course apne aap unlock ho jayega.");
+        await openBrowserCheckout(orderData, courseId as string, {
+          name: user.fullName ?? undefined,
+          email: user.email ?? undefined,
+          contact: profile?.mobile ?? undefined,
+        });
+      } catch (err) {
+        logger.error("Browser checkout handoff failed:", err);
+        toast.error("Browser checkout khul nahi paya. Internet check karke dobara koshish karein.");
+      } finally {
+        if (isMountedRef.current) setIsRazorpayLoading(false);
+      }
+      return;
+    }
     if (Capacitor.isNativePlatform() && !opts?.forceWeb) {
       try {
         // Razorpay builds its UPI / "Recommended" block from the customer's
@@ -698,14 +748,23 @@ const BuyCourse = () => {
                     </Button>
                   )}
                   {isNative && !isIosNative && (
-                    <button
-                      type="button"
-                      onClick={() => { void tapMedium(); void handleRazorpayPayment({ forceWeb: true }); }}
-                      disabled={isRazorpayLoading}
-                      className="mt-2 w-full rounded-md py-2 text-xs font-medium text-muted-foreground underline-offset-4 transition-transform duration-150 ease-out active:scale-[0.97] active:opacity-90 disabled:opacity-50"
-                    >
-                      UPI option nahi dikh raha? Browser checkout se pay karein
-                    </button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => { void tapMedium(); void handleRazorpayPayment({ forceWeb: true }); }}
+                        disabled={isRazorpayLoading}
+                        className="mt-2 h-auto min-h-11 w-full whitespace-normal break-words px-3 py-2.5 text-sm font-semibold leading-snug active:scale-[0.97] transition-transform duration-150 ease-out"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4 shrink-0" />
+                        UPI app se pay karein (browser)
+                      </Button>
+                      <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+                        GPay, PhonePe, Paytm jaise UPI apps app ke andar wale checkout me nahi
+                        khul paate. Ye option phone ke browser me checkout kholta hai, jahan
+                        saare UPI apps dikhte hain — payment ke baad course apne aap khul jayega.
+                      </p>
+                    </>
                   )}
                 </div>
               </>

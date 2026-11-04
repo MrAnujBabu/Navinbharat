@@ -104,6 +104,8 @@ const LiveClass = lazyWithRetry(() => import("./pages/LiveClass"));
 const TeacherLiveView = lazyWithRetry(() => import("./pages/TeacherLiveView"));
 const Library = lazyWithRetry(() => import("./pages/Library"));
 const PaymentCallback = lazyWithRetry(() => import("./pages/PaymentCallback"));
+const PayBrowser = lazyWithRetry(() => import("./pages/PayBrowser"));
+import PaymentResume from "./hooks/usePaymentResume";
 const Doubts = lazyWithRetry(() => import("./pages/Doubts"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const DeleteAccountPublic = lazyWithRetry(() => import("./pages/DeleteAccountPublic"));
@@ -381,6 +383,8 @@ const App = () => (
               <BrowserRouter>
                 <NavigationHistoryProvider>
                   <ScrollToTop />
+                  {/* Finishes an interrupted purchase on ANY page, after ANY sign-in. */}
+                  <PaymentResume />
                   <ForceUpdateGate>
                   <Suspense fallback={<RouteSkeleton />}>
                   <RouteTransitions>
@@ -446,7 +450,8 @@ const App = () => (
                     {/* Course Purchase & Learning */}
                     <Route path="/buy-course" element={<ProtectedRoute element={<BuyCourse />} />} />
                     <Route path="/buy-course/:id" element={<ProtectedRoute element={<BuyCourse />} />} />
-                    <Route path="/payment-callback" element={<ProtectedRoute element={<PaymentCallback />} />} />
+                    <Route path="/payment-callback" element={<PaymentCallback />} />
+                    <Route path="/pay" element={<PayBrowser />} />
                     <Route path="/all-classes" element={<ProtectedRoute element={<AllClasses />} />} />
                     <Route path="/classes/:courseId/lessons" element={<ProtectedRoute element={<ErrorBoundary fallbackTitle="Lesson failed to load"><LessonView /></ErrorBoundary>} />} />
                     <Route path="/classes/:courseId/chapters" element={<ProtectedRoute element={<ChapterView />} />} />
