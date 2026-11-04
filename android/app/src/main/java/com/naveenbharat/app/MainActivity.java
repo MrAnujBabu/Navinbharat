@@ -12,9 +12,15 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-import com.getcapacitor.BridgeActivity;
+import android.content.Intent;
 
-public class MainActivity extends BridgeActivity {
+import com.getcapacitor.BridgeActivity;
+import com.razorpay.ExternalWalletListener;
+import com.razorpay.PaymentData;
+import com.razorpay.PaymentResultWithDataListener;
+
+public class MainActivity extends BridgeActivity
+        implements PaymentResultWithDataListener, ExternalWalletListener {
 
     /**
      * True while a reader surface owns the system bars. Kept on the Java side
@@ -27,7 +33,12 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Native Razorpay bridge used by src/utils/razorpayNative.ts. Capacitor
+        // requires registerPlugin() BEFORE super.onCreate().
+        registerPlugin(RazorpayNativePlugin.class);
         super.onCreate(savedInstanceState);
+        // Warm up Razorpay so installed UPI apps are resolved before checkout.
+        RazorpayNativePlugin.preload(getApplicationContext());
 
         // Draw edge-to-edge from process start. Without this the WebView is
         // inset by the status bar and the window paints that gap with the
@@ -56,6 +67,31 @@ public class MainActivity extends BridgeActivity {
 
         // `src/lib/androidImmersive.ts` calls `window.AndroidImmersive`.
         getBridge().getWebView().addJavascriptInterface(new ImmersiveBridge(), "AndroidImmersive");
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == com.razorpay.Checkout.RZP_REQUEST_CODE
+                && RazorpayNativePlugin.handleCheckoutResult(this, requestCode, resultCode, data)) {
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    // Razorpay result handover (fragment-based SDK). Never throw into the SDK.
+    @Override
+    public void onPaymentSuccess(String razorpayPaymentId, PaymentData paymentData) {
+        try { RazorpayNativePlugin.deliverSuccess(razorpayPaymentId, paymentData); } catch (Throwable ignored) { }
+    }
+
+    @Override
+    public void onPaymentError(int code, String description, PaymentData paymentData) {
+        try { RazorpayNativePlugin.deliverError(code, description, paymentData); } catch (Throwable ignored) { }
+    }
+
+    @Override
+    public void onExternalWalletSelected(String walletName, PaymentData paymentData) {
+        try { RazorpayNativePlugin.deliverExternalWallet(walletName); } catch (Throwable ignored) { }
     }
 
     /** Hide status + nav bars, transient-by-swipe. Safe to call repeatedly. */
