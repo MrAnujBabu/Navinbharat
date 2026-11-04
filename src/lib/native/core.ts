@@ -41,3 +41,19 @@ export const __resetCoreCache = () => {
   cached = null;
   inflight = null;
 };
+
+
+/**
+ * Async `Capacitor.isNativePlatform()` for callers outside `src/lib/native/`.
+ * Keeps `@capacitor/core` out of feature-code import graphs (see the
+ * `no-restricted-imports` rule in eslint.config.js). Returns `false` if the
+ * bridge cannot be loaded (plain web build).
+ */
+export const isNativePlatform = async (): Promise<boolean> => {
+  try {
+    const { Capacitor } = await loadCore();
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+};
