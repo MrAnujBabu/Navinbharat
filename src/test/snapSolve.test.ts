@@ -4,9 +4,9 @@ vi.mock("@/lib/native/core", () => ({ loadCore: async () => ({ Capacitor: { isNa
 vi.mock("@capacitor/inappbrowser", () => ({ InAppBrowser: { openInWebView: mocks.open, openInSystemBrowser: mocks.system }, DefaultWebViewOptions: { android: {} } }));
 vi.mock("sonner", () => ({ toast: { error: mocks.error } }));
 import { openSnapSolve } from "@/lib/native/snapSolve";
-describe("SnapSolve APK-only opening", () => {
+describe("SnapSolve platform-aware opening", () => {
  beforeEach(() => { vi.clearAllMocks(); mocks.native.mockReturnValue(true); mocks.open.mockResolvedValue(undefined); });
  it("opens the requested site in the APK embedded WebView", async () => { await openSnapSolve(); expect(mocks.open).toHaveBeenCalledWith(expect.objectContaining({ url: "https://snapsolveanuj.vercel.app/" })); });
  it("never redirects externally when the embedded bridge fails", async () => { const external = vi.spyOn(window, "open").mockImplementation(() => null); mocks.open.mockRejectedValue(new Error("Bridge unavailable")); await openSnapSolve(); expect(mocks.system).not.toHaveBeenCalled(); expect(external).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalledOnce(); external.mockRestore(); });
- it("does not open SnapSolve outside the APK", async () => { mocks.native.mockReturnValue(false); await openSnapSolve(); expect(mocks.open).not.toHaveBeenCalled(); expect(mocks.system).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalledOnce(); });
+ it("opens SnapSolve on web without an APK error", async () => { const external = vi.spyOn(window, "open").mockImplementation(() => null); mocks.native.mockReturnValue(false); await openSnapSolve(); expect(external).toHaveBeenCalledWith("https://snapsolveanuj.vercel.app/", "_blank", "noopener,noreferrer"); expect(mocks.open).not.toHaveBeenCalled(); expect(mocks.system).not.toHaveBeenCalled(); expect(mocks.error).not.toHaveBeenCalled(); external.mockRestore(); });
 });

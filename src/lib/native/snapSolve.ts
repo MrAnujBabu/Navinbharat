@@ -1,10 +1,13 @@
 import { loadCore } from "./core";
 export const SNAP_SOLVE_URL = "https://snapsolveanuj.vercel.app/";
-/** APK-only: never falls back to an external browser. */
+/** Web opens a tab; native failures never fall back to an external browser. */
 export async function openSnapSolve(): Promise<void> {
   try {
     const { Capacitor } = await loadCore();
-    if (!Capacitor.isNativePlatform()) throw new Error("APK required");
+    if (!Capacitor.isNativePlatform()) {
+      window.open(SNAP_SOLVE_URL, "_blank", "noopener,noreferrer");
+      return;
+    }
     const { InAppBrowser, DefaultWebViewOptions } = await import("@capacitor/inappbrowser");
     await InAppBrowser.openInWebView({ url: SNAP_SOLVE_URL, options: {
       ...DefaultWebViewOptions, showURL: false, showToolbar: true,

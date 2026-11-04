@@ -1,5 +1,6 @@
 import { memo, useState, useEffect, Suspense, forwardRef } from "react";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
+import { isNativeShellAtBoot, shouldWaitForNativeHome } from "./lib/native/homeBootstrap";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
@@ -307,6 +308,9 @@ PageLoader.displayName = "PageLoader";
 const PublicRoute = forwardRef<unknown, { element: React.ReactElement }>(({ element }, _ref) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  // Capacitor injects its bridge before React mounts. Hold only native home,
+  // avoiding a landing paint before the restored session redirects to dashboard.
+  if (shouldWaitForNativeHome(location.pathname, isLoading, isNativeShellAtBoot())) return <PageLoader />;
   // Do NOT gate public pages behind `isLoading`. Swapping in a PageLoader during
   // auth bootstrap unmounts the sign-in form, so anything typed in the first few
   // hundred ms is discarded and submit fails with "Please fill in all fields"
