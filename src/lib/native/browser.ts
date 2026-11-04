@@ -24,6 +24,12 @@ export function isRedirectHeavyUrl(url: string): boolean {
 }
 
 export const openExternal = async (url: string, options: OpenExternalOptions = {}): Promise<void> => {
+  // SnapSolve is APK-only: never hand it off to a system browser.
+  if (url === "https://snapsolveanuj.vercel.app/") {
+    const { openSnapSolve } = await import("./snapSolve");
+    await openSnapSolve();
+    return;
+  }
   let isNative = false;
   try {
     const { Capacitor } = await import(/* @vite-ignore */ "@capacitor/core");

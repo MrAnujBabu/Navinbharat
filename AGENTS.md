@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Route APK-only external destinations through a fail-closed embedded WebView helper; generic browser fallbacks can leave the APK.
