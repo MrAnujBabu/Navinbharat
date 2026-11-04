@@ -46,6 +46,9 @@ const AUTO_ALLOW_PATTERNS: RegExp[] = [
   /^https:\/\/naveenbharat\.vercel\.app$/i,
   /^https:\/\/naveenbharat-[a-z0-9-]+\.vercel\.app$/i,
   /^https:\/\/(www\.|app\.)?naveenbharat\.in$/i,
+  // Live site is hosted as navinbharat.vercel.app (spelling without 'ee').
+  /^https:\/\/navinbharat\.vercel\.app$/i,
+  /^https:\/\/navinbharat-[a-z0-9-]+\.vercel\.app$/i,
   // Capacitor Android WebView with androidScheme: 'https' loads the app from
   // https://localhost, so its Origin header is exactly that. Without this
   // pattern, every supabase.functions.invoke() from the APK was falling back
