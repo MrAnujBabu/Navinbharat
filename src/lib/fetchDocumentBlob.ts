@@ -17,6 +17,7 @@
  * third-party host. Errors never echo the URL or the token.
  */
 import { isResolvableStorageViewerUrl, resolveStorageBytes } from "./native/naveenStoragePdf";
+import { parseStorageUrl, refreshSignedStorageUrl } from "./refreshSignedStorageUrl";
 import { fetchPdfViaNativeHttp } from "./nativePdfHttp";
 import { fetchWithAuthRetry } from "./pdfProxyAuthRetry";
 import {
@@ -89,7 +90,12 @@ async function fetchOne(url: string, signal?: AbortSignal): Promise<Blob> {
  * Throws a user-readable Error when every candidate fails.
  */
 export async function fetchDocumentBlob(rawUrl: string, signal?: AbortSignal): Promise<Blob> {
-  const url = sanitizeRemoteUrl(rawUrl);
+  const sanitized = sanitizeRemoteUrl(rawUrl);
+  // "Add from link" can save an expired signed storage URL. Re-sign the same
+  // bucket/path up front so Save offline and every retry use a fresh link.
+  const url = parseStorageUrl(sanitized)
+    ? await refreshSignedStorageUrl(sanitized).catch(() => sanitized)
+    : sanitized;
   if (isResolvableStorageViewerUrl(url)) return resolveStorageBytes(url, signal);
 
   let lastError: unknown = null;
