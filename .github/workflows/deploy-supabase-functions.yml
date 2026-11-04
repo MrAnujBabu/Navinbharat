@@ -33,4 +33,4 @@ jobs:
         run: |
           FN="${{ github.event.inputs.function }}"
           [ -z "$FN" ] && FN=pdf-proxy
-          supabase functions deploy "$FN" --project-ref "$PROJECT_REF" --use-api
+          supabase functions deploy "$FN" --project-ref "$PROJECT_REF" --use-api --yes
