@@ -1,63 +1,114 @@
 import { describe, it, expect } from "vitest";
-import { buildNativeRazorpayPayload } from "../utils/razorpayNative";
-import { UPI_FIRST_CHECKOUT_CONFIG } from "../utils/razorpay";
+import { buildNativeCheckoutPayload, type NativeRazorpayOptions } from "@/utils/razorpayNative";
 
-/**
- * UPI regression guard.
- *
- * The Android sheet lost its UPI section whenever a web-only checkout key
- * leaked into the native payload. These assertions fail loudly if either
- * `config.display.blocks` or the `method` filter map comes back.
- */
-const baseOptions = {
-  key: "rzp_live_abc123",
+const base: NativeRazorpayOptions = {
+  key: "rzp_test_abc123",
   amount: 49900,
   currency: "INR",
-  name: "Naveen Bharat",
-  description: "Class 11 Biology",
-  order_id: "order_TestOrder123",
-  prefill: { name: "A", email: "a@b.com", contact: "9876543210" },
-  theme: { color: "#F97316" },
-  ...UPI_FIRST_CHECKOUT_CONFIG,
+  name: "JSR COACHING",
+  description: "Knowledge Hub",
+  order_id: "order_ABC123XYZ",
 };
 
-describe("buildNativeRazorpayPayload", () => {
-  it("drops the web-only display config", () => {
-    const payload = buildNativeRazorpayPayload(baseOptions);
-    expect(payload).not.toHaveProperty("config");
+describe("buildNativeCheckoutPayload", () => {
+  it("sends the amount as a number of paise", () => {
+    const payload = buildNativeCheckoutPayload(base);
+    expect(payload.amount).toBe(49900);
+    expect(typeof payload.amount).toBe("number");
   });
 
-  it("drops the method filter map so dashboard config drives the sheet", () => {
-    const payload = buildNativeRazorpayPayload(baseOptions);
-    expect(payload).not.toHaveProperty("method");
-  });
-
-  it("sends amount as a paise string and keeps the server order id", () => {
-    const payload = buildNativeRazorpayPayload(baseOptions);
-    expect(payload.amount).toBe("49900");
-    expect(typeof payload.amount).toBe("string");
-    expect(payload.order_id).toBe("order_TestOrder123");
-  });
-
-  it("never invents an order id client-side", () => {
-    const payload = buildNativeRazorpayPayload({ ...baseOptions, order_id: "" });
-    expect(payload.order_id).toBe("");
-  });
-
-  it("forwards prefill and theme untouched", () => {
-    const payload = buildNativeRazorpayPayload(baseOptions);
-    expect(payload.prefill).toEqual(baseOptions.prefill);
-    expect(payload.theme).toEqual({ color: "#F97316" });
-  });
-
-  it("omits prefill entirely when there is nothing to prefill", () => {
-    const { prefill: _drop, ...rest } = baseOptions;
-    const payload = buildNativeRazorpayPayload(rest);
-    expect(payload).not.toHaveProperty("prefill");
+  it("keeps the server-created order id and key", () => {
+    const payload = buildNativeCheckoutPayload(base);
+    expect(payload.order_id).toBe("order_ABC123XYZ");
+    expect(payload.key).toBe("rzp_test_abc123");
   });
 
   it("defaults currency to INR", () => {
-    const payload = buildNativeRazorpayPayload({ ...baseOptions, currency: "" });
+    const payload = buildNativeCheckoutPayload({ ...base, currency: "" });
     expect(payload.currency).toBe("INR");
+  });
+
+  it("forwards the display config so the UPI block is pinned to the top", () => {
+    const display = { blocks: { upi: { instruments: [{ method: "upi", flows: ["intent"] }] } }, sequence: ["block.upi"] };
+    const payload = buildNativeCheckoutPayload({ ...base, config: { display } });
+    expect(payload.config).toEqual({ display });
+  });
+
+  it("ignores a config without a display block", () => {
+    const payload = buildNativeCheckoutPayload({ ...base, config: { junk: 1 } });
+    expect(payload.config).toBeUndefined();
+  });
+
+  it("forwards the method map so UPI is explicitly requested", () => {
+    const payload = buildNativeCheckoutPayload({
+      ...base,
+      method: { card: true, upi: true },
+    });
+    expect(payload.method).toEqual({ card: true, upi: true });
+  });
+
+  it("forwards remember_customer only when enabled", () => {
+    expect(buildNativeCheckoutPayload({ ...base, remember_customer: true }).remember_customer).toBe(true);
+    expect(buildNativeCheckoutPayload(base).remember_customer).toBeUndefined();
+  });
+
+  it("strips prefill.method so the UPI app tiles are not skipped", () => {
+    const payload = buildNativeCheckoutPayload({
+      ...base,
+      prefill: { name: "A", email: "a@b.com", contact: "9999999999", method: "upi" },
+    });
+    expect(payload.prefill).toEqual({
+      name: "A",
+      email: "a@b.com",
+      contact: "9999999999",
+    });
+  });
+
+  it("omits prefill entirely when no usable field is present", () => {
+    const payload = buildNativeCheckoutPayload({ ...base, prefill: { method: "upi" } });
+    expect(payload.prefill).toBeUndefined();
+  });
+
+  it("sends the theme colour as the flat Android key", () => {
+    const payload = buildNativeCheckoutPayload({ ...base, theme: { color: "#123456" } });
+    expect(payload["theme.color"]).toBe("#123456");
+    // The nested object form is a documented Android crash cause.
+    expect(payload.theme).toBeUndefined();
+  });
+
+  it("drops the custom UPI layout on a test key", () => {
+    const payload = buildNativeCheckoutPayload({
+      ...base,
+      mode: "test",
+      method: { upi: true },
+      remember_customer: true,
+      config: { display: { sequence: ["block.upi"] } },
+    });
+    expect(payload.config).toBeUndefined();
+    expect(payload.method).toBeUndefined();
+    expect(payload.remember_customer).toBeUndefined();
+    expect(payload.order_id).toBe("order_ABC123XYZ");
+  });
+
+  it("keeps the custom UPI layout on a live key", () => {
+    const payload = buildNativeCheckoutPayload({
+      ...base,
+      mode: "live",
+      method: { upi: true },
+      config: { display: { sequence: ["block.upi"] } },
+    });
+    expect(payload.method).toEqual({ upi: true });
+    expect(payload.config).toEqual({ display: { sequence: ["block.upi"] } });
+  });
+
+  it("never forwards unknown web-only keys", () => {
+    const payload = buildNativeCheckoutPayload({
+      ...base,
+      // @ts-expect-error deliberately passing a web-only field
+      modal: { confirm_close: true },
+    });
+    expect(Object.keys(payload).sort()).toEqual(
+      ["amount", "currency", "description", "key", "name", "order_id"].sort()
+    );
   });
 });
