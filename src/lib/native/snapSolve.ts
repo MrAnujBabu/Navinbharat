@@ -11,7 +11,7 @@ export async function openSnapSolve(): Promise<void> {
     const { InAppBrowser, DefaultWebViewOptions } = await import("@capacitor/inappbrowser");
     await InAppBrowser.openInWebView({ url: SNAP_SOLVE_URL, options: {
       ...DefaultWebViewOptions, showURL: false, showToolbar: true,
-      showNavigationButtons: true, clearCache: false, clearSessionCache: false,
+      closeButtonText: "×", showNavigationButtons: false, clearCache: false, clearSessionCache: false,
       android: { ...DefaultWebViewOptions.android, hardwareBack: true },
     }});
   } catch {

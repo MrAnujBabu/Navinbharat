@@ -30,6 +30,7 @@ public class MainActivity extends BridgeActivity
      * keep their status bar.
      */
     private volatile boolean immersiveOwned = false;
+    private final SnapSolveHeader snapSolveHeader = new SnapSolveHeader();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -37,6 +38,7 @@ public class MainActivity extends BridgeActivity
         // requires registerPlugin() BEFORE super.onCreate().
         registerPlugin(RazorpayNativePlugin.class);
         super.onCreate(savedInstanceState);
+        getApplication().registerActivityLifecycleCallbacks(snapSolveHeader);
         // Warm up Razorpay so installed UPI apps are resolved before checkout.
         RazorpayNativePlugin.preload(getApplicationContext());
 
@@ -71,6 +73,12 @@ public class MainActivity extends BridgeActivity
         // recover from renderer death. Ported from JSR RecoveryWebViewClient.
         getBridge().getWebView().setWebViewClient(new RecoveryWebViewClient(getBridge(), this));
         getBridge().getWebView().addJavascriptInterface(new ImmersiveBridge(), "AndroidImmersive");
+    }
+
+    @Override
+    protected void onDestroy() {
+        getApplication().unregisterActivityLifecycleCallbacks(snapSolveHeader);
+        super.onDestroy();
     }
 
     @Override

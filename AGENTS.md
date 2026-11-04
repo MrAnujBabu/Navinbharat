@@ -11,3 +11,4 @@
 
 - Route APK-only external destinations through a fail-closed embedded WebView helper; generic browser fallbacks can leave the APK.
 - Native home waits for session bootstrap without delaying public web landing or remounting login forms.
+- Style SnapSolve's native close control through an activity lifecycle hook gated by its × label; preserve the plugin close handler and all other browser/payment headers.
