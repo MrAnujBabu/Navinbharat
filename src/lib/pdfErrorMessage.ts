@@ -90,9 +90,6 @@ export function friendlyPdfErrorMessage(err: unknown, src: string | null | undef
     const host = pdfSourceHost(src);
     const where = host ? ` by ${host}` : "";
     const reason = e.statusText ? ` — server said "${e.statusText}"` : "";
-    if (/\.supabase\.co$/i.test(host || "")) {
-      return "Yeh PDF ab server par nahi mili — file hata di gayi hai ya aapke account ko iska access nahi hai. Is item ko library se hata kar sahi file dobara add karein.";
-    }
     return status === 404
       ? `PDF not found (404)${where}${reason}. The file was moved or deleted at its link — ask the uploader to re-upload it.`
       : `PDF access denied (403)${where}${reason}. The link is private or expired — tap Retry, or ask the uploader for a fresh link.`;
