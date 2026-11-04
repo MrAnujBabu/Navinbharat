@@ -8,6 +8,7 @@ import { fetchPdfViaNativeHttp } from "../lib/nativePdfHttp";
 import { loadCore } from "../lib/native/core";
 import { loadFilesystem } from "../lib/native/filesystem";
 import { fetchWithAuthRetry } from "../lib/pdfProxyAuthRetry";
+import { parseStorageUrl, refreshSignedStorageUrl } from "../lib/refreshSignedStorageUrl";
 
 
 /**
@@ -43,19 +44,25 @@ const FETCH_TIMEOUT_MS = 25000;
 const NATIVE_REMOTE_FETCH_TIMEOUT_MS = 25000;
 
 async function fetchBlobWithTimeout(url: string, signal: AbortSignal): Promise<Blob> {
-  const nativeBlob = await fetchPdfViaNativeHttp(url, signal);
+  // Signed storage URLs expire (often within 1h). Re-sign the same
+  // bucket/path before every attempt so saved-link PDFs always load and
+  // every Retry gets a fresh signature. Non-storage URLs pass through.
+  const target = parseStorageUrl(url)
+    ? await refreshSignedStorageUrl(url).catch(() => url)
+    : url;
+  const nativeBlob = await fetchPdfViaNativeHttp(target, signal);
   if (nativeBlob) return nativeBlob;
 
   // First attempt — normal cached fetch. For pdf-proxy URLs, a 401 triggers
   // a one-shot session refresh + retry (see pdfProxyAuthRetry.ts).
-  let res = await fetchWithAuthRetry(url, { credentials: "omit", signal });
+  let res = await fetchWithAuthRetry(target, { credentials: "omit", signal });
   // Signed-URL expiry / transient gateway hiccup: one retry with cache bypass.
   // 401/403/410 = expired signature; 408/425/429/5xx = transient. Skip 404
   // (real missing object — retry won't help and just delays the error toast).
   if (!res.ok && res.status !== 404 && /^(?:401|403|408|410|425|429|5\d\d)$/.test(String(res.status))) {
-    addBreadcrumb("pdf", "fetch:retry", { status: res.status, url: redactUrl(url, 80) });
-    const sep = url.includes("?") ? "&" : "?";
-    res = await fetchWithAuthRetry(`${url}${sep}_nbretry=${Date.now()}`, { credentials: "omit", signal, cache: "reload" });
+    addBreadcrumb("pdf", "fetch:retry", { status: res.status, url: redactUrl(target, 80) });
+    const sep = target.includes("?") ? "&" : "?";
+    res = await fetchWithAuthRetry(`${target}${sep}_nbretry=${Date.now()}`, { credentials: "omit", signal, cache: "reload" });
   }
   if (!res.ok) throw new Error(`FileNotFound: HTTP ${res.status}`);
   return res.blob();
@@ -235,6 +242,11 @@ export function useLocalPdfSource(url: string, retryNonce = 0): LocalPdfState {
 
     const isLocal = isLocalPdfUrl(url);
     const isResolvableRemote = !isLocal && isResolvableStorageViewerUrl(url);
+    // Raw Supabase storage URLs (signed / public / authenticated) saved by
+    // "Add from link" must be materialised through a fresh signed URL —
+    // pdf.js streaming the pasted link directly 403s once the signature
+    // expires, and the reader's Retry would keep reusing the stale URL.
+    const isProjectStorageUrl = !isLocal && !!parseStorageUrl(url);
     // On Capacitor native (`https://localhost` WebView origin) pdf.js worker
     // Range requests against cross-origin hosts are silently CORS-blocked for
     // any host that doesn't echo `Access-Control-Allow-Headers: Range` — the
@@ -257,7 +269,7 @@ export function useLocalPdfSource(url: string, retryNonce = 0): LocalPdfState {
     // fine through pdf-proxy (Drive path already relies on it), so we now let
     // ALL remote http URLs stream directly on native too. Only local files
     // and resolvable Supabase-storage viewer URLs still need materialisation.
-    const shouldMaterialize = isLocal || isResolvableRemote;
+    const shouldMaterialize = isLocal || isResolvableRemote || isProjectStorageUrl;
 
     if (!shouldMaterialize) {
       setState({ src: url, data: null, loading: false, error: null, isLocal: false });
@@ -395,8 +407,8 @@ export function useLocalPdfSource(url: string, retryNonce = 0): LocalPdfState {
           // navigation cleanup. Previously this returned without updating
           // state, leaving Notes/DPP/Library stuck on an infinite spinner in
           // the APK. Fall back to the stream/proxy reader path instead.
-          if (timedOut && (isResolvableRemote || nativeRemoteFallback) && !isIndexedLocal) {
-            if (isResolvableRemote) {
+          if (timedOut && (isResolvableRemote || isProjectStorageUrl || nativeRemoteFallback) && !isIndexedLocal) {
+            if (isResolvableRemote || isProjectStorageUrl) {
               // Storage viewer pages are HTML, not PDFs. Handing the raw URL
               // to pdf.js produces the misleading "Invalid PDF structure".
               setState({
@@ -432,7 +444,7 @@ export function useLocalPdfSource(url: string, retryNonce = 0): LocalPdfState {
         // NEVER pass a storage viewer URL through to pdf.js: that page is
         // HTML, so the real reason (auth / entitlement / upstream) would be
         // replaced by "Invalid PDF structure".
-        if (!isResolvableRemote && (isLocal || nativeRemoteFallback) && !isIndexedLocal) {
+        if (!(isResolvableRemote || isProjectStorageUrl) && (isLocal || nativeRemoteFallback) && !isIndexedLocal) {
           setState({ src: url, data: null, loading: false, error: null, isLocal: false });
         } else {
           const friendly = isIndexedLocal && isNetworkErr

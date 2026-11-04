@@ -15,6 +15,12 @@ import logoIcon from "../../assets/branding/nb-mark.webp";
 import fabLogo from "../../assets/branding/nb-mark.webp";
 import { logger } from "../../lib/logger";
 import { friendlyAiError } from "../../lib/aiErrorMessage";
+import { openExternal } from "../../lib/native/browser";
+
+// The floating AI agent button hands off to the SnapSolve AI agent site.
+// openExternal opens it inside the app's WebView on Android/iOS and a new
+// tab on web.
+const AGENT_SITE_URL = "https://snapsolveanuj.vercel.app/";
 
 
 interface Message {
@@ -527,14 +533,16 @@ const ChatWidget = forwardRef<HTMLDivElement>(() => {
 
         {/* Locked floating button */}
         <button
-          onClick={() => setShowLoginTip(prev => !prev)}
+          onClick={() => {
+            void openExternal(AGENT_SITE_URL);
+          }}
           className={cn(
             "w-14 h-14 rounded-full shadow-md flex items-center justify-center",
             "bg-white dark:bg-card border border-border/50 transition-all duration-200",
             "hover:shadow-lg relative",
             showLoginTip && "shadow-lg ring-1 ring-border"
           )}
-          aria-label="Login to chat with Naveen Bharat Agent"
+          aria-label="Open Naveen Bharat AI agent"
         >
           <img src={fabLogo} className="w-9 h-9 object-contain" alt="Naveen Bharat Agent" />
           {/* Lock badge */}
@@ -557,16 +565,19 @@ const ChatWidget = forwardRef<HTMLDivElement>(() => {
         onChange={handleFileSelect}
       />
 
-      {/* Floating trigger button */}
+      {/* Floating trigger button — opens the SnapSolve AI agent site */}
       <button
-        onClick={() => setIsOpen(prev => !prev)}
+        onClick={() => {
+          void tapHaptic("light");
+          void openExternal(AGENT_SITE_URL);
+        }}
         style={{ bottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))" }}
         className={cn(
           "fixed right-4 z-[55] md:!bottom-6 md:right-6",
           "w-14 h-14 flex items-center justify-center bg-transparent transition-transform duration-200 active:scale-95",
           isOpen && "scale-0 opacity-0 pointer-events-none"
         )}
-        aria-label="Open Naveen Bharat Agent"
+        aria-label="Open Naveen Bharat AI agent"
       >
         <img src={fabLogo} className="w-14 h-14 object-contain drop-shadow-md" alt="Naveen Bharat Agent" />
       </button>
