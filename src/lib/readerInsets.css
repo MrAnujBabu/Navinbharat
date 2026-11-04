@@ -1,0 +1,5 @@
+/* Reader-only placement: native bar bands must never cover toolbar controls. */
+[data-testid="doc-reader-shell"] { --nb-reader-top-inset: max(env(safe-area-inset-top, 0px), var(--nb-sysbar-top, 0px), var(--nb-status-floor, 0px)); }
+[data-testid="doc-reader-shell"] header { top: var(--nb-reader-top-inset); z-index: 76; }
+[data-testid="reader-fullpage-toolbar"] { top: calc(var(--nb-reader-top-inset) + 0.5rem); }
+[data-reader-portal-host] { --nb-reader-top-inset: 0px; }
