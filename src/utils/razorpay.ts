@@ -1,11 +1,18 @@
 import { reportError, addBreadcrumb } from "../lib/sentry";
-import type { RazorpaySuccessResponse, RazorpayPaymentError, RazorpayConstructor } from "./paymentTypes";
+
+interface RazorpayInstance {
+  open: () => void;
+  close?: () => void;
+  on: (event: "payment.failed", handler: (response: { error?: RazorpayPaymentError }) => void) => void;
+}
 
 declare global {
   interface Window {
-    Razorpay: RazorpayConstructor;
+    Razorpay: new (options: Omit<RazorpayOptions, "onFailure">) => RazorpayInstance;
   }
 }
+
+export const RAZORPAY_SCRIPT_TIMEOUT_MS = 8000;
 
 export const loadRazorpayScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -13,10 +20,21 @@ export const loadRazorpayScript = (): Promise<boolean> => {
       resolve(true);
       return;
     }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    let settled = false;
+    const finish = (loaded: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve(loaded);
+    };
+    const timeoutId = window.setTimeout(() => {
+      script.remove();
+      finish(false);
+    }, RAZORPAY_SCRIPT_TIMEOUT_MS);
+    script.onload = () => finish(true);
+    script.onerror = () => finish(false);
     document.body.appendChild(script);
   });
 };
@@ -53,9 +71,20 @@ export interface RazorpayOptions {
   onFailure?: (err: RazorpayPaymentError) => void;
 }
 
-// Shapes live in paymentTypes.ts so the web and native wrappers can never
-// drift apart; re-exported here to keep existing import paths working.
-export type { RazorpaySuccessResponse, RazorpayPaymentError } from "./paymentTypes";
+export interface RazorpaySuccessResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+export interface RazorpayPaymentError {
+  code?: string;
+  description?: string;
+  source?: string;
+  step?: string;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
 
 /**
  * Human-friendly copy for Razorpay's opaque error shapes. Razorpay often
@@ -63,7 +92,9 @@ export type { RazorpaySuccessResponse, RazorpayPaymentError } from "./paymentTyp
  * message — that's what triggered the customer-facing bug report. Map the
  * common (step, reason) combos to actionable messages instead.
  */
-export function formatRazorpayError(err: RazorpayPaymentError | undefined | null): string {
+export function formatRazorpayError(
+  err: RazorpayPaymentError | undefined | null,
+): string {
   if (!err) return "Payment failed. Please try again.";
   const step = (err.step || "").toLowerCase();
   const reason = (err.reason || "").toLowerCase();
@@ -80,65 +111,184 @@ export function formatRazorpayError(err: RazorpayPaymentError | undefined | null
     // a merchant-side config issue — the order + key are valid or Razorpay
     // would have refused to open. The user needs to retry with a different
     // instrument or complete the OTP correctly.
-    return desc
-      || "Bank could not verify your payment (OTP / 3-D Secure). Please retry, or use UPI / a different card.";
+    return (
+      desc ||
+      "Bank could not verify your payment (OTP / 3-D Secure). Please retry, or use UPI / a different card."
+    );
   }
-  if (reason === "payment_cancelled") return "Payment cancelled. No amount was charged.";
-  if (reason === "network_error")     return "Network dropped during payment. Check your connection and retry.";
-  if (reason === "gateway_error")     return "Your bank's gateway is down. Please retry in a minute or use a different method.";
+  if (reason === "payment_cancelled")
+    return "Payment cancelled. No amount was charged.";
+  if (reason === "network_error")
+    return "Network dropped during payment. Check your connection and retry.";
+  if (reason === "gateway_error")
+    return "Your bank's gateway is down. Please retry in a minute or use a different method.";
   if (reason === "international_transaction_not_allowed")
     return "International cards are not supported for this course. Please use an Indian card or UPI.";
-  if (reason === "invalid_otp")       return "Wrong OTP. Please retry and enter the OTP from your bank SMS.";
-  if (reason === "payment_timeout")   return "Payment timed out. Please retry.";
+  if (reason === "invalid_otp")
+    return "Wrong OTP. Please retry and enter the OTP from your bank SMS.";
+  if (reason === "payment_timeout") return "Payment timed out. Please retry.";
 
   // Razorpay's most common opaque failure: BAD_REQUEST_ERROR with
   // `description: "undefined"` and no reason. Attributable to the customer
   // (source=customer) — usually a mistyped OTP / UPI PIN or an authorization
   // that the bank refused without a specific code.
-  if (code === "BAD_REQUEST_ERROR" || reason === "payment_error" || source === "customer") {
-    return desc
-      || "Payment could not be completed. Please retry, or try UPI / a different card.";
+  if (
+    code === "BAD_REQUEST_ERROR" ||
+    reason === "payment_error" ||
+    source === "customer"
+  ) {
+    return (
+      desc ||
+      "Payment could not be completed. Please retry, or try UPI / a different card."
+    );
   }
 
-  return desc || `Payment failed (${err.reason || err.code || "unknown reason"}). Please try again.`;
+  return (
+    desc ||
+    `Payment failed (${err.reason || err.code || "unknown reason"}). Please try again.`
+  );
 }
 
-export const openRazorpayCheckout = async (options: RazorpayOptions): Promise<void> => {
+/**
+ * The Razorpay instance currently on screen.
+ *
+ * WHY: Razorpay throws "A checkout is already open" if `open()` is called
+ * while a previous sheet still exists — which is exactly what a student sees
+ * after a failed attempt, because the dead instance was never closed. We
+ * close the stale one before opening a new sheet, and drop the reference as
+ * soon as the sheet resolves (paid, dismissed, or failed).
+ */
+let activeCheckout: { close?: () => void } | null = null;
+
+export const openRazorpayCheckout = async (
+  options: RazorpayOptions,
+): Promise<void> => {
   const loaded = await loadRazorpayScript();
   if (!loaded) {
-    addBreadcrumb('payment', 'razorpay:sdk-load-failed', { order_id: options.order_id });
-    const err = new Error('Failed to load Razorpay checkout. Check your internet connection.');
-    reportError(err, { surface: 'razorpay.load', order_id: options.order_id });
+    addBreadcrumb("payment", "razorpay:sdk-load-failed", {
+      order_id: options.order_id,
+    });
+    const err = new Error(
+      "Payment screen load nahi hui. Internet check karke dobara try karein.",
+    );
+    reportError(err, { surface: "razorpay.load", order_id: options.order_id });
     throw err;
   }
 
   if (!window.Razorpay) {
-    const err = new Error('Razorpay SDK not available. Please try again or use a different browser.');
-    reportError(err, { surface: 'razorpay.load', reason: 'sdk-missing-after-load', order_id: options.order_id });
+    const err = new Error(
+      "Razorpay SDK not available. Please try again or use a different browser.",
+    );
+    reportError(err, {
+      surface: "razorpay.load",
+      reason: "sdk-missing-after-load",
+      order_id: options.order_id,
+    });
     throw err;
   }
 
   const { onFailure, ...rzpOptions } = options;
+
+  // Release the sheet reference whichever way this checkout ends, so the next
+  // attempt never hits "A checkout is already open".
+  const release = () => {
+    activeCheckout = null;
+  };
+  const userHandler = rzpOptions.handler;
+  const userDismiss = rzpOptions.modal?.ondismiss;
+  rzpOptions.handler = (resp: RazorpaySuccessResponse) => {
+    release();
+    userHandler?.(resp);
+  };
+  rzpOptions.modal = {
+    ...(rzpOptions.modal ?? {}),
+    ondismiss: () => {
+      release();
+      userDismiss?.();
+    },
+  };
+
+  if (activeCheckout) {
+    try {
+      activeCheckout.close?.();
+    } catch {
+      /* stale instance, nothing to clean up */
+    }
+    activeCheckout = null;
+  }
+
   const rzp = new window.Razorpay(rzpOptions);
+  activeCheckout = rzp;
 
   // Route Razorpay's async payment.failed event to the caller so the UI can
   // show a real message instead of a generic toast. Also forwarded to Sentry
   // with full context so we can diagnose recurring key/mode issues.
-  rzp.on('payment.failed', (response: { error?: RazorpayPaymentError }) => {
+  rzp.on("payment.failed", (response: { error?: RazorpayPaymentError }) => {
     const err = response?.error;
-    reportError(err ?? new Error('Razorpay payment failed'), {
-      surface: 'razorpay.payment_failed',
+    release();
+    reportError(err ?? new Error("Razorpay payment failed"), {
+      surface: "razorpay.payment_failed",
       step: err?.step,
       reason: err?.reason,
       code: err?.code,
       source: err?.source,
     });
-    try { onFailure?.(err ?? {}); } catch { /* ignore */ }
+    try {
+      onFailure?.(err ?? {});
+    } catch {
+      /* ignore */
+    }
   });
 
-  addBreadcrumb('payment', 'razorpay:open', { order_id: options.order_id, mode: 'web' });
+  addBreadcrumb("payment", "razorpay:open", {
+    order_id: options.order_id,
+    mode: "web",
+  });
   rzp.open();
+
+  // Blank-sheet guard. Inside the Android WebView the checkout iframe can fail
+  // to render (blocked navigation, offline CDN) and `open()` reports nothing —
+  // the user just watched "Processing…" flip back to the Pay button with an
+  // empty gate. Verify the container actually mounted; if not, close and throw
+  // so the caller can show a real message and offer another route.
+  const mounted = await waitForCheckoutFrame();
+  if (!mounted) {
+    addBreadcrumb("payment", "razorpay:blank-sheet", {
+      order_id: options.order_id,
+    });
+    try {
+      rzp.close?.();
+    } catch {
+      /* ignore */
+    }
+    release();
+    const err = new Error(
+      "Payment screen khali reh gayi. App update karein ya website se pay karein.",
+    );
+    reportError(err, {
+      surface: "razorpay.blank-sheet",
+      order_id: options.order_id,
+    });
+    throw err;
+  }
 };
+
+/** How long we allow the web checkout iframe to appear before calling it blank. */
+export const CHECKOUT_FRAME_TIMEOUT_MS = 6000;
+
+/** Resolves true once Razorpay's checkout container/iframe is in the DOM. */
+async function waitForCheckoutFrame(): Promise<boolean> {
+  const deadline = Date.now() + CHECKOUT_FRAME_TIMEOUT_MS;
+  const present = () =>
+    !!document.querySelector(
+      '.razorpay-container, iframe[src*="razorpay"], iframe.razorpay-checkout-frame',
+    );
+  while (Date.now() < deadline) {
+    if (present()) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return present();
+}
 
 /**
  * UPI-first checkout config.
@@ -166,22 +316,65 @@ export const UPI_FIRST_CHECKOUT_CONFIG = {
     display: {
       blocks: {
         upi: {
-          name: 'Pay using UPI',
+          name: "Pay using UPI",
           // `intent` = installed app tiles (GPay / PhonePe / Paytm).
           // `collect` = VPA entry fallback jab koi UPI app installed na ho.
           // Dono explicit chahiye — sirf `{ method: 'upi' }` dene par
           // Razorpay generic block dikhata hai aur app tiles render nahi hote.
           instruments: [
-            { method: 'upi', flows: ['intent'] },
-            { method: 'upi', flows: ['collect'] },
+            { method: "upi", flows: ["intent"] },
+            { method: "upi", flows: ["collect"] },
           ],
         },
       },
-      sequence: ['block.upi'],
+      sequence: ["block.upi"],
       preferences: { show_default_blocks: true },
     },
   },
 } as const;
+
+/**
+ * Mode-aware UPI-first config.
+ *
+ * Razorpay ke **test mode** me UPI ka `intent` flow (GPay / PhonePe / Paytm
+ * tiles) available hi nahi hota — us flow ko maangne par checkout ka UPI block
+ * khaali reh jaata hai aur student ko lagta hai "UPI hi nahi hai". Test mode me
+ * isliye sirf `collect` (UPI ID / VPA) maangte hain: block dikhta hai aur
+ * `success@razorpay` jaise test VPA se poora flow verify ho jaata hai.
+ *
+ * Live mode me dono flows jaate hain, taaki installed app tiles bhi aayen.
+ */
+export const buildUpiCheckoutConfig = (
+  mode?: "test" | "live" | null,
+): {
+  method: Record<string, boolean>;
+  remember_customer: boolean;
+  config: { display: Record<string, unknown> };
+} => {
+  const testMode = mode === "test";
+  const instruments = testMode
+    ? [{ method: "upi", flows: ["collect"] }]
+    : [
+        { method: "upi", flows: ["intent"] },
+        { method: "upi", flows: ["collect"] },
+      ];
+  return {
+    method: { ...UPI_FIRST_CHECKOUT_CONFIG.method },
+    remember_customer: true,
+    config: {
+      display: {
+        blocks: {
+          upi: {
+            name: testMode ? "UPI ID se pay karein" : "Pay using UPI",
+            instruments,
+          },
+        },
+        sequence: ["block.upi"],
+        preferences: { show_default_blocks: true },
+      },
+    },
+  };
+};
 
 /**
  * Razorpay `prefill.contact` ke liye Indian mobile number normalise karta hai.
@@ -196,13 +389,15 @@ export const UPI_FIRST_CHECKOUT_CONFIG = {
  * @returns 10-digit number, ya `undefined` agar input valid nahi hai.
  */
 export const sanitizeRazorpayContact = (
-  raw: string | null | undefined
+  raw: string | null | undefined,
 ): string | undefined => {
   if (!raw) return undefined;
-  let digits = String(raw).replace(/\D/g, '');
-  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
-  else if (digits.length === 13 && digits.startsWith('091')) digits = digits.slice(3);
-  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  let digits = String(raw).replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  else if (digits.length === 13 && digits.startsWith("091"))
+    digits = digits.slice(3);
+  else if (digits.length === 11 && digits.startsWith("0"))
+    digits = digits.slice(1);
   if (digits.length !== 10) return undefined;
   if (!/^[6-9]/.test(digits)) return undefined;
   return digits;
@@ -219,9 +414,8 @@ export const buildRazorpayPrefill = (input: {
 }): { name: string; email: string; contact?: string; method?: string } => {
   const contact = sanitizeRazorpayContact(input.contact);
   return {
-    name: input.name || '',
-    email: input.email || '',
-    ...(contact ? { contact, method: 'upi' } : {}),
+    name: input.name || "",
+    email: input.email || "",
+    ...(contact ? { contact, method: "upi" } : {}),
   };
 };
-
