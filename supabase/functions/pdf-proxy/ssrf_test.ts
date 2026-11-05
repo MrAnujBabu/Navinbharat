@@ -4,7 +4,7 @@
 // Run with:
 //   deno test supabase/functions/pdf-proxy/ssrf_test.ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { downloadFileName, isAllowedPdfUrl, rangeContainsPdfSignature } from "./index.ts";
+import { downloadFileName, isAllowedPdfUrl, rangeContainsPdfSignature, urlLookupPattern } from "./index.ts";
 
 const allow = (url: string) => assertEquals(isAllowedPdfUrl(url), true, url);
 const deny = (url: string) => assertEquals(isAllowedPdfUrl(url), false, url);
@@ -88,4 +88,27 @@ Deno.test("Download filename: safe ASCII name ending in .pdf", () => {
   assertEquals(downloadFileName(null, "https://prod-recordings.vedantu.com/NOTES/PROD/abc123.pdf"), "abc123.pdf");
   assertEquals(downloadFileName('a"b\r\nc', "https://x/y"), "a_b_c.pdf");
   assertEquals(downloadFileName("..", "https://x/"), "document.pdf");
+});
+
+// Course-content lookup must find a paid PDF however its link was stored,
+// otherwise the file falls through to "personal library" and opens unpaid.
+Deno.test("urlLookupPattern: same file matches across spellings", () => {
+  const vedantu = "%prod-recordings.vedantu.com%NOTES%PROD%6a7eb202ce63b65a22dd7742.pdf%";
+  assertEquals(urlLookupPattern("https://prod-recordings.vedantu.com/NOTES/PROD/6a7eb202ce63b65a22dd7742.pdf"), vedantu);
+  assertEquals(urlLookupPattern("http://prod-recordings.vedantu.com/NOTES/PROD/6a7eb202ce63b65a22dd7742.pdf?x=1#p2"), vedantu);
+  assertEquals(urlLookupPattern(" https://www.Example.com/Suffer%20English%20/file%2520notes.pdf "), "%example.com%Suffer%English%file%notes.pdf%");
+});
+
+Deno.test("urlLookupPattern: LIKE wildcards are escaped", () => {
+  assertEquals(urlLookupPattern("https://cdn.jsdelivr.net/gh/a/b/my_notes%25.pdf"), "%cdn.jsdelivr.net%gh%a%b%my\\_notes\\%.pdf%");
+});
+
+Deno.test("urlLookupPattern: Google Docs match on the document id", () => {
+  assertEquals(urlLookupPattern("https://docs.google.com/document/d/ABC_123-x/export?format=pdf"), "%docs.google.com%document%d%ABC\\_123-x%");
+});
+
+Deno.test("urlLookupPattern: too-generic links are not matched", () => {
+  assertEquals(urlLookupPattern("https://example.com/"), null);
+  assertEquals(urlLookupPattern("https://example.com/a.pdf"), null);
+  assertEquals(urlLookupPattern("not a url"), null);
 });

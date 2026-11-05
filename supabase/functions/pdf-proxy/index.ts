@@ -240,6 +240,51 @@ async function authorizeUrl(userId: string, url: string): Promise<boolean> {
     if (r.course_id != null) courseIds.add(r.course_id as number);
   }
 
+  // Exact spellings matched nothing. Before treating the link as a
+  // personal-library link, look for the same file stored another way
+  // (http vs https, ?query, extra spaces, wrapped in a viewer URL) or pasted
+  // into a lesson's file_path / description / overview. Any hit means the
+  // file is course content and the enrollment gate below applies.
+  if (courseIds.size === 0 && lessonIds.size === 0) {
+    const pattern = urlLookupPattern(url);
+    if (pattern) {
+      const db = adminClient;
+      const [fLp, fNt, fLa, fMt, fSmExt, fSmFile, ...fLessons] = await Promise.all([
+        db.from("lesson_pdfs").select("lesson_id").ilike("file_url", pattern).limit(50),
+        db.from("notes").select("lesson_id").ilike("pdf_url", pattern).limit(50),
+        db.from("lesson_attachments").select("lesson_id").ilike("file_url", pattern).limit(50),
+        db.from("materials").select("course_id").ilike("file_url", pattern).limit(50),
+        db.from("study_materials").select("course_id").ilike("external_url", pattern).limit(50),
+        db.from("study_materials").select("course_id").ilike("file_url", pattern).limit(50),
+        ...["class_pdf_url", "video_url", "file_path", "description", "overview"].map((col) =>
+          db.from("lessons").select("course_id, is_free, is_preview").ilike(col, pattern).limit(50)
+        ),
+      ]);
+      // A lookup error must not open the file: fail closed.
+      const failed = [fLp, fNt, fLa, fMt, fSmExt, fSmFile, ...fLessons].find((r) => r.error);
+      if (failed) {
+        console.error("pdf-proxy: fuzzy ownership lookup failed", failed.error);
+        return false;
+      }
+      for (const res of [fLp, fNt, fLa]) {
+        for (const r of (res.data ?? []) as { lesson_id: string | null }[]) {
+          if (r.lesson_id) lessonIds.add(r.lesson_id);
+        }
+      }
+      for (const res of [fMt, fSmExt, fSmFile]) {
+        for (const r of (res.data ?? []) as { course_id: number | null }[]) {
+          if (r.course_id != null) courseIds.add(r.course_id);
+        }
+      }
+      for (const res of fLessons) {
+        for (const r of (res.data ?? []) as { course_id: number | null; is_free: boolean | null; is_preview: boolean | null }[]) {
+          if (r.is_free || r.is_preview) return true;
+          if (r.course_id != null) courseIds.add(r.course_id);
+        }
+      }
+    }
+  }
+
   if (lessonIds.size > 0) {
     const { data: ls } = await adminClient
       .from("lessons").select("course_id, is_free, is_preview").in("id", [...lessonIds]);
@@ -1356,6 +1401,34 @@ async function relayUpstream(upstream: Response, method: string, range: string |
   });
 }
 
+
+/**
+ * ILIKE pattern that finds the same remote file however it was stored:
+ * scheme, `www.`, query string and hash are ignored, and spaces / %20 /
+ * slashes between words match loosely. LIKE wildcards in the URL are
+ * escaped. Returns null when the file name is too generic to match safely.
+ */
+export function urlLookupPattern(raw: string): string | null {
+  let u: URL;
+  try { u = new URL(raw.trim()); } catch { return null; }
+  const host = u.hostname.toLowerCase().replace(/^www\./, "");
+  let path = u.pathname;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const next = decodeURIComponent(path);
+      if (next === path) break;
+      path = next;
+    } catch { break; }
+  }
+  const tokens = path.split(/[\s/]+/).filter(Boolean);
+  // Viewer verbs differ between the stored and the requested link
+  // (Google Docs `/edit` vs `/export`); match on the document id instead.
+  if (/^(edit|export|view|preview|download)$/i.test(tokens[tokens.length - 1] ?? "")) tokens.pop();
+  const last = tokens[tokens.length - 1] ?? "";
+  if (!host || last.length < 6) return null;
+  const esc = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
+  return `%${[host, ...tokens].map(esc).join("%")}%`;
+}
 
 /** Safe attachment filename for download=1 responses (ASCII, ends in .pdf). */
 export function downloadFileName(requested: string | null, target: string): string {
