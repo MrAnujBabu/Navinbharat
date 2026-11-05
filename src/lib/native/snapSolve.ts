@@ -5,6 +5,9 @@ export async function openSnapSolve(): Promise<void> {
   try {
     const { Capacitor } = await loadCore();
     if (!Capacitor.isNativePlatform()) {
+      // Web-only branch (native returns below via InAppBrowser). openResource()
+      // would route back through openExternal -> openSnapSolve and loop.
+      // eslint-disable-next-line no-restricted-syntax
       window.open(SNAP_SOLVE_URL, "_blank", "noopener,noreferrer");
       return;
     }
