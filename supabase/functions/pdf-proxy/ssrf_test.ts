@@ -4,7 +4,7 @@
 // Run with:
 //   deno test supabase/functions/pdf-proxy/ssrf_test.ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { downloadFileName, isAllowedPdfUrl, rangeContainsPdfSignature, urlLookupPattern } from "./index.ts";
+import { downloadFileName, isAllowedPdfUrl, ncertMirrorUrl, rangeContainsPdfSignature, urlLookupPattern } from "./index.ts";
 
 const allow = (url: string) => assertEquals(isAllowedPdfUrl(url), true, url);
 const deny = (url: string) => assertEquals(isAllowedPdfUrl(url), false, url);
@@ -119,4 +119,14 @@ Deno.test("GitHub Pages: only the app's own PDF site is allowed", () => {
   deny("https://github.io/x.pdf");
   deny("https://mranujbabu.github.io.attacker.net/x.pdf");
   deny("http://mranujbabu.github.io/x.pdf");
+});
+
+Deno.test("NCERT: archived-copy fallback only for NCERT hosts", () => {
+  const m = ncertMirrorUrl("https://ncert.nic.in/textbook/pdf/kebo118.pdf");
+  assertEquals(m, "https://web.archive.org/web/2id_/https://ncert.nic.in/textbook/pdf/kebo118.pdf");
+  allow(m!);
+  assertEquals(ncertMirrorUrl("https://ncert.org.in/x/abc.pdf"), "https://web.archive.org/web/2id_/https://ncert.org.in/x/abc.pdf");
+  assertEquals(ncertMirrorUrl("https://ncert.nic.in.attacker.net/a.pdf"), null);
+  assertEquals(ncertMirrorUrl("https://cdn.jsdelivr.net/gh/a/b/c.pdf"), null);
+  assertEquals(ncertMirrorUrl("garbage"), null);
 });

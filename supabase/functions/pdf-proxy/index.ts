@@ -1228,7 +1228,7 @@ export function isAllowedPdfUrl(raw: string): boolean {
 // re-validating at every hop closes that SSRF gap.
 const MAX_REDIRECTS = 3;
 
-async function fetchRemoteFile(
+async function fetchRemoteFileDirect(
   url: string,
   range: string | null,
   timeoutMs = UPSTREAM_TIMEOUT_MS,
@@ -1291,6 +1291,40 @@ async function fetchRemoteFile(
     JSON.stringify({ error: "Too many redirects" }),
     { status: 502, headers: { "Content-Type": "application/json" } },
   );
+}
+
+/**
+ * NCERT (ncert.nic.in / ncert.org.in) resets connections from the cloud
+ * regions our functions run in, so their textbook PDFs never load. Those
+ * files are public and archived by the Wayback Machine; fall back to the
+ * raw archived copy (`id_` = original bytes) when the live site fails.
+ * Returns null for every other host.
+ */
+export function ncertMirrorUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (!/(^|\.)ncert\.(nic|org)\.in$/i.test(u.hostname)) return null;
+    return `https://web.archive.org/web/2id_/${u.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRemoteFile(
+  url: string,
+  range: string | null,
+  timeoutMs = UPSTREAM_TIMEOUT_MS,
+): Promise<Response> {
+  const mirror = ncertMirrorUrl(url);
+  if (!mirror) return fetchRemoteFileDirect(url, range, timeoutMs);
+  try {
+    const res = await fetchRemoteFileDirect(url, range, Math.min(timeoutMs, 15_000));
+    if (res.ok || res.status === 206) return res;
+    await res.body?.cancel().catch(() => {});
+  } catch (err) {
+    console.warn("pdf-proxy: NCERT live fetch failed, using archive copy", String(err));
+  }
+  return fetchRemoteFileDirect(mirror, range, Math.max(timeoutMs, ARCHIVE_UPSTREAM_TIMEOUT_MS));
 }
 
 function typedPdfError(status: number, code: string, error: string, details: Record<string, unknown> = {}): Response {
