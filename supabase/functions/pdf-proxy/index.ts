@@ -963,6 +963,9 @@ const ALLOWED_HOSTS = [
   // range-streamable, but CORS-closed — the bytes must be relayed.
   /(^|\.)ncert\.nic\.in$/i,
   /(^|\.)ncert\.org\.in$/i,
+  // GitHub Pages copy of the app's own PDF repo (MrAnujBabu/edu-pdfs).
+  // Exact host only: any GitHub user can publish on github.io.
+  /^mranujbabu\.github\.io$/i,
 ];
 
 /**

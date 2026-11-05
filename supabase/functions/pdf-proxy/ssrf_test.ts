@@ -112,3 +112,11 @@ Deno.test("urlLookupPattern: too-generic links are not matched", () => {
   assertEquals(urlLookupPattern("https://example.com/a.pdf"), null);
   assertEquals(urlLookupPattern("not a url"), null);
 });
+
+Deno.test("GitHub Pages: only the app's own PDF site is allowed", () => {
+  allow("https://MrAnujBabu.github.io/edu-pdfs/27%20SEP/6a8ed08eb0946354241c2882.pdf");
+  deny("https://someone-else.github.io/x.pdf");
+  deny("https://github.io/x.pdf");
+  deny("https://mranujbabu.github.io.attacker.net/x.pdf");
+  deny("http://mranujbabu.github.io/x.pdf");
+});

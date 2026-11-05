@@ -218,6 +218,8 @@ const RELAYABLE_HOSTS = [
   /(^|\.)notion\.(so|site)$/i,
   // NCERT textbook PDFs — no CORS headers upstream, so bytes are relayed.
   /(^|\.)ncert\.(nic|org)\.in$/i,
+  // GitHub Pages copy of the app's own PDF repo — exact host only.
+  /^mranujbabu\.github\.io$/i,
 ];
 
 export function isProxyRelayable(url: string): boolean {
