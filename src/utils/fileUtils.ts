@@ -4,6 +4,7 @@
  */
 import { isResolvableStorageViewerUrl, resolveStorageBytes } from "@/lib/native/naveenStoragePdf";
 import { addBreadcrumb } from "@/lib/sentry";
+import { downloadablePdfUrl } from "@/lib/pdfViewerUrl";
 
 
 /** Extract Google Drive file ID from various URL formats */
@@ -158,9 +159,12 @@ export const downloadFile = async (
   onProgress?: (p: DownloadProgress) => void,
   signal?: AbortSignal,
 ): Promise<void> => {
-  const downloadUrl = getDownloadUrl(url);
-  const name = safeName(filename || extractFilename(downloadUrl));
-  const expectsPdf = /\.pdf($|\?)/i.test(downloadUrl) || /\.pdf$/i.test(name);
+  const directUrl = getDownloadUrl(url);
+  const name = safeName(filename || extractFilename(directUrl));
+  const expectsPdf = /\.pdf($|\?)/i.test(directUrl) || /\.pdf$/i.test(name);
+  // CORS-closed hosts (Vedantu) are saved through pdf-proxy, which fetches
+  // the file server-side and streams it back to the app.
+  const downloadUrl = downloadablePdfUrl(directUrl, name);
 
   const throwIfAborted = () => {
     if (signal?.aborted) throw new DOMException("Download aborted", "AbortError");

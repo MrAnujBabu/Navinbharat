@@ -22,6 +22,7 @@ import {
   extractDriveFileId,
   googleExportPdfUrl,
   remotePdfProxyUrl,
+  downloadablePdfUrl,
   hasPdfPath,
   isArchiveOrg,
   extractArchiveId,
@@ -209,5 +210,24 @@ describe("Universal document link support (7 types)", () => {
     expect(isCrwMedia("https://notcrwilladmin.com/x.pdf")).toBe(false);
     expect(isCrwMedia("https://crwilladmin.com/x.pdf")).toBe(true);
     expect(isCrwMedia("not a url")).toBe(false);
+  });
+});
+
+describe("Save to device: Vedantu notes go through the PDF server", () => {
+  const vedantu = "https://prod-recordings.vedantu.com/NOTES/PROD/abc123.pdf";
+
+  it("routes a Vedantu PDF through pdf-proxy as a direct download", () => {
+    const out = downloadablePdfUrl(vedantu, "Physics Notes.pdf");
+    expect(out).toContain("/pdf-proxy?kind=url");
+    expect(out).toContain(`url=${encodeURIComponent(vedantu)}`);
+    expect(out).toContain("download=1");
+    expect(out).toContain("filename=Physics%20Notes.pdf");
+  });
+
+  it("leaves links from other hosts unchanged", () => {
+    const jsd = "https://cdn.jsdelivr.net/gh/foo/bar@main/x.pdf";
+    expect(downloadablePdfUrl(jsd, "x.pdf")).toBe(jsd);
+    const lookalike = "https://prod-recordings.vedantu.com.evil.io/x.pdf";
+    expect(downloadablePdfUrl(lookalike)).toBe(lookalike);
   });
 });

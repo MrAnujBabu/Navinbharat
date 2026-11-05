@@ -4,7 +4,7 @@
 // Run with:
 //   deno test supabase/functions/pdf-proxy/ssrf_test.ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { isAllowedPdfUrl, rangeContainsPdfSignature } from "./index.ts";
+import { downloadFileName, isAllowedPdfUrl, rangeContainsPdfSignature } from "./index.ts";
 
 const allow = (url: string) => assertEquals(isAllowedPdfUrl(url), true, url);
 const deny = (url: string) => assertEquals(isAllowedPdfUrl(url), false, url);
@@ -81,4 +81,11 @@ Deno.test("PDF validation: tiny Range probes are not treated as invalid PDFs", (
   assertEquals(rangeContainsPdfSignature("bytes=0-4"), true);
   assertEquals(rangeContainsPdfSignature("bytes=0-524287"), true);
   assertEquals(rangeContainsPdfSignature("bytes=524288-1048575"), false);
+});
+
+Deno.test("Download filename: safe ASCII name ending in .pdf", () => {
+  assertEquals(downloadFileName("Physics Notes.pdf", "https://x/y.pdf"), "Physics Notes.pdf");
+  assertEquals(downloadFileName(null, "https://prod-recordings.vedantu.com/NOTES/PROD/abc123.pdf"), "abc123.pdf");
+  assertEquals(downloadFileName('a"b\r\nc', "https://x/y"), "a_b_c.pdf");
+  assertEquals(downloadFileName("..", "https://x/"), "document.pdf");
 });

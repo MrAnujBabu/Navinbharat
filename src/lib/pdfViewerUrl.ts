@@ -254,6 +254,21 @@ export const remotePdfProxyUrl = (url: string): string =>
   withAccessToken(`${functionUrl("pdf-proxy")}?kind=url&url=${encodeURIComponent(url)}`);
 
 /**
+ * "Save to device" source for a PDF link. Hosts that send no CORS headers
+ * (Vedantu notes) cannot be fetched by the app directly, so the save goes
+ * through pdf-proxy with download=1: the server fetches the file itself (only
+ * for signed-in users, allow-listed hosts and permitted courses) and streams
+ * the bytes back instead of redirecting. Other links are returned unchanged.
+ */
+export const downloadablePdfUrl = (url: string, filename?: string): string => {
+  if (!isVedantuRecordings(url)) return url;
+  const name = filename ? `&filename=${encodeURIComponent(filename)}` : "";
+  return withAccessToken(
+    `${functionUrl("pdf-proxy")}?kind=url&url=${encodeURIComponent(url)}&download=1${name}`,
+  );
+};
+
+/**
  * CORS-safe byte proxy for Office documents (docx/pptx/xlsx). Same allow-list
  * and enrollment gate as the PDF route, but without the `%PDF-` signature
  * check — these files are ZIP containers rendered client-side.

@@ -32,7 +32,7 @@ const headersWithCors = (extra: HeadersInit = {}) => ({
   ...corsHeaders,
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range, x-supabase-api-version, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Expose-Headers": "content-length, content-range, accept-ranges, content-type, cache-control, cache-tag, x-pdf-total-bytes",
+  "Access-Control-Expose-Headers": "content-length, content-range, accept-ranges, content-type, cache-control, cache-tag, x-pdf-total-bytes, content-disposition",
   // pdf.js makes many Range requests for a large scan. Cache the successful
   // preflight so mobile browsers do not add an OPTIONS round-trip per chunk.
   "Access-Control-Max-Age": "86400",
@@ -739,11 +739,16 @@ Deno.serve(async (req) => {
         });
       }
       const rangeHeader = req.headers.get("range");
+      // download=1 -> "Save to device". The function fetches the file itself
+      // and streams the bytes straight back as an attachment. A save is never
+      // answered with a redirect: Vedantu sends no CORS headers, so a browser
+      // bounced to another origin stops the download midway.
+      const wantsDownload = input.searchParams.get("download") === "1";
 
       // Fast path for immutable, CORS-closed hosts (Vedantu lecture notes):
       // serve from the pdf-cache bucket via a signed CDN URL with native
       // Range support, and warm the cache on the first miss.
-      if (req.method === "GET" && isCacheableRemote(target) && req.headers.get("cache-control") !== "no-cache") {
+      if (!wantsDownload && req.method === "GET" && isCacheableRemote(target) && req.headers.get("cache-control") !== "no-cache") {
         const hit = await tryRemoteCacheRedirect(target);
         if (hit) return hit;
         warmRemoteCacheInBackground(target);
@@ -766,7 +771,18 @@ Deno.serve(async (req) => {
         last_status: upstreamUrl.status,
         last_content_type: upstreamUrl.headers.get("content-type"),
       });
-      return await relayUpstream(upstreamUrl, req.method, rangeHeader);
+      const relayed = await relayUpstream(upstreamUrl, req.method, rangeHeader);
+      if (wantsDownload && relayed.ok) {
+        const name = downloadFileName(input.searchParams.get("filename"), target);
+        relayed.headers.set(
+          "Content-Disposition",
+          `attachment; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        );
+        // Paid content behind a per-user token: never let a shared cache keep it.
+        relayed.headers.set("Cache-Control", "private, no-store");
+        relayed.headers.delete("CDN-Cache-Control");
+      }
+      return relayed;
     }
 
     if (kind !== "drive" || !DRIVE_ID_RE.test(id)) {
@@ -1340,6 +1356,19 @@ async function relayUpstream(upstream: Response, method: string, range: string |
   });
 }
 
+
+/** Safe attachment filename for download=1 responses (ASCII, ends in .pdf). */
+export function downloadFileName(requested: string | null, target: string): string {
+  let base = (requested || "").trim();
+  if (!base) {
+    try {
+      base = decodeURIComponent(new URL(target).pathname.split("/").filter(Boolean).pop() || "");
+    } catch { base = ""; }
+  }
+  base = base.replace(/[^A-Za-z0-9._ ()-]+/g, "_").replace(/_+/g, "_").slice(0, 120).trim();
+  if (!base || /^\.+$/.test(base)) base = "document";
+  return /\.pdf$/i.test(base) ? base : `${base}.pdf`;
+}
 
 /** statusText marker used to signal "shared, but download is disabled". */
 const DRIVE_DOWNLOAD_DISABLED = "Drive download disabled";
