@@ -3,7 +3,16 @@ import { requestPdfViaNativeHttp } from "../nativePdfHttp";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseFunctionsUrl, supabaseRuntimeKey } from "@/integrations/supabase/runtime";
 
-const STORAGE_HOST_RE = /storage-naveenbharat-recording\.vercel\.app/i;
+// The storage site moved: storage-naveenbharat-recording.vercel.app now
+// 307-redirects to jsrstudy.vercel.app. Both hosts carry the same view ids.
+const STORAGE_HOST_RE = /^(storage-naveenbharat-recording|jsrstudy)\.vercel\.app$/i;
+/** Public, range-capable PDF endpoint on the storage site (no CORS headers). */
+export const STORAGE_PUBLIC_PDF_BASE = "https://jsrstudy.vercel.app/api/public/pdf/";
+
+export function naveenStoragePublicPdfUrl(url: string): string | null {
+  const id = getNaveenStorageViewId(url);
+  return id ? `${STORAGE_PUBLIC_PDF_BASE}${id}` : null;
+}
 const VIEW_ID_RE = /\/view\/([a-f0-9-]{20,})/i;
 
 // External storage credentials moved server-side into the
@@ -69,6 +78,28 @@ async function fetchBlobViaNativeHttp(url: string, headers: Record<string, strin
 export async function fetchNaveenStoragePdf(url: string, signal?: AbortSignal): Promise<Blob> {
   const id = getNaveenStorageViewId(url);
   if (!id) throw new Error("Unsupported Naveen Bharat storage link");
+
+  // Primary path: the storage site's public PDF endpoint. The old path below
+  // (resolve-storage-pdf -> upstream `pdf_documents` table) now fails with
+  // "permission denied for table pdf_documents", which every student saw as
+  // "Document service didn't respond".
+  //   - APK: CapacitorHttp ignores CORS, so fetch the endpoint directly.
+  //   - Web: the endpoint sends no CORS headers, so relay via pdf-proxy.
+  const publicUrl = `${STORAGE_PUBLIC_PDF_BASE}${id}`;
+  try {
+    const nativeDirect = await requestPdfViaNativeHttp(publicUrl, { signal });
+    if (nativeDirect) return nativeDirect;
+    const { remotePdfProxyUrl } = await import("../pdfViewerUrl");
+    const resp = await fetch(remotePdfProxyUrl(publicUrl), { signal, credentials: "omit" });
+    const ct = resp.headers.get("content-type") || "";
+    if (resp.ok && !/text\/html|application\/json/i.test(ct)) return await resp.blob();
+    await resp.body?.cancel().catch(() => {});
+    if (resp.status === 404) throw Object.assign(new Error("HTTP 404"), { status: 404 });
+  } catch (err) {
+    if ((err as { name?: string })?.name === "AbortError") throw err;
+    if ((err as { status?: number })?.status === 404) throw err;
+    // Anything else: fall through to the legacy edge-function path.
+  }
 
   // Route through our authenticated edge function. The upstream API key is
   // held server-side; this client only ever sends its own JWT + view_id.

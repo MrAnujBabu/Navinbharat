@@ -175,9 +175,29 @@ export const isAzureBlobCdn = (url: string) => /\.blob\.core\.windows\.net/i.tes
 export const isGithubStoragesCdn = (url: string) =>
   /github-storages-cdn\.vercel\.app/i.test(url);
 
-/** Naveen Bharat Storage viewer (already a viewer page) */
+/**
+ * "Naveen Bharat Files" viewer links - `github-storages-cdn.vercel.app/v/<path>`
+ * - are HTML pages (x-frame-options: SAMEORIGIN, so they can't be embedded
+ * either), even when <path> ends in `.pdf`. The page is a front-end for the
+ * `MrAnujBabu/edu-pdfs` repository and <path> is the file's path in it, so
+ * rewrite to the raw GitHub file. Before this, pdf-proxy relayed the viewer's
+ * HTML and the reader failed.
+ */
+const GITHUB_STORAGES_VIEWER_RE = /^https?:\/\/github-storages-cdn\.vercel\.app\/v\/(.+)$/i;
+const EDU_PDFS_RAW_BASE = "https://raw.githubusercontent.com/MrAnujBabu/edu-pdfs/main/";
+
+export const githubStoragesViewerToRaw = (url: string): string | null => {
+  const m = GITHUB_STORAGES_VIEWER_RE.exec((url || "").trim());
+  if (!m) return null;
+  const path = m[1].split(/[?#]/)[0];
+  if (!/\.pdf$/i.test(path)) return null;
+  return EDU_PDFS_RAW_BASE + path.replace(/ /g, "%20");
+};
+
+/** Naveen Bharat Storage viewer (already a viewer page). The site moved to
+ *  jsrstudy.vercel.app; the old host 307-redirects there. */
 export const isNaveenBharatStorage = (url: string) =>
-  /storage-naveenbharat-recording\.vercel\.app/i.test(url);
+  /(storage-naveenbharat-recording|jsrstudy)\.vercel\.app/i.test(url);
 
 /**
  * Vedantu lecture-notes storage — e.g.
@@ -337,7 +357,8 @@ export const googleDocsPdfProxyUrl = (url: string): string | null => {
  * them with googleDrivePdfProxyUrl() before FastPdfReader mounts.
  */
 export const renderablePdfUrl = (rawUrl: string): string => {
-  const url = normalizeNcertUrl(sanitizeRemoteUrl(rawUrl));
+  const cleaned = sanitizeRemoteUrl(rawUrl);
+  const url = normalizeNcertUrl(githubStoragesViewerToRaw(cleaned) ?? cleaned);
   // NCERT serves PDFs without CORS headers — always relay through pdf-proxy.
   if (isNcertUrl(url)) return remotePdfProxyUrl(url);
   const gdoc = googleDocsPdfProxyUrl(url);
@@ -409,7 +430,8 @@ export function resolveEmbedUrl(rawUrl: string): {
   openUrl: string;
   isDrive: boolean;
 } {
-  const url = sanitizeRemoteUrl(rawUrl);
+  const cleaned = sanitizeRemoteUrl(rawUrl);
+  const url = githubStoragesViewerToRaw(cleaned) ?? cleaned;
   // Local-origin URLs (blob:, data:, file:, capacitor://, ionic://) can't be
   // loaded by the remote PDF.js viewer (cross-origin). Browsers + Capacitor
   // WebView render these natively in an <iframe>, so embed directly.

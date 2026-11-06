@@ -810,6 +810,19 @@ Deno.serve(async (req) => {
           headers: headersWithCors({ "Content-Type": "application/json" }),
         });
       }
+      // A web page is never a PDF. Viewer pages (and dead links that answer
+      // 200 with an HTML page) used to be relayed as a "success", so the
+      // reader got HTML and failed with a confusing parse error.
+      const upstreamType = (upstreamUrl.headers.get("content-type") || "").toLowerCase();
+      if (upstreamUrl.ok && upstreamType.includes("text/html")) {
+        await upstreamUrl.body?.cancel().catch(() => {});
+        recordMetric({ event: "url_not_pdf", tier: "url", last_status: upstreamUrl.status, last_content_type: upstreamType });
+        return typedPdfError(
+          415,
+          "not_pdf",
+          "This link opens a web page, not a PDF file. Ask your teacher to share the direct PDF link.",
+        );
+      }
       recordMetric({
         event: "url_success",
         tier: "url",
@@ -946,6 +959,9 @@ const ALLOWED_HOSTS = [
   /(^|\.)github-storages-cdn\.vercel\.app$/i,
   /(^|\.)storage-safarenglishka-recording\.vercel\.app$/i,
   /(^|\.)storage-naveenbharat-recording\.vercel\.app$/i,
+  // Storage site moved here; its /api/public/pdf/<id> endpoint serves the
+  // PDF bytes (range-capable) but sends no CORS headers.
+  /(^|\.)jsrstudy\.vercel\.app$/i,
   // Google serves the actual export bytes from a googleusercontent redirect
   // hop; without this the SSRF re-validation turns a valid doc into a 502.
   /(^|\.)googleusercontent\.com$/i,
