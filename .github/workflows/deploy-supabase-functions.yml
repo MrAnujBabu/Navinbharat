@@ -14,13 +14,17 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from Oct 2026 (GitHub notice);
+    # change this deliberately, not by surprise.
+    runs-on: ubuntu-24.04
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: cmbattmjwriiesibayfk
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      # checkout@v5 / setup-cli@v3 run on Node 24 (v4 / v1 were Node 20, which
+      # GitHub deprecated and flagged as a warning on every deploy).
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - name: Check token

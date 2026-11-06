@@ -29,7 +29,9 @@ env:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from Oct 2026 (GitHub notice);
+    # change this deliberately, not by surprise.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
