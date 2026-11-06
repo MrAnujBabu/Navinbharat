@@ -32,10 +32,14 @@ export const ContentViewSwitcher = ({ activeView, onViewChange, modes }: Content
       {shown.map(({ id, icon: Icon, label }) => (
         <button
           key={id}
+          type="button"
           onClick={() => onViewChange(id)}
           title={label}
+          aria-label={`${label} view`}
+          aria-pressed={activeView === id}
           className={cn(
-            "inline-flex h-9 w-9 items-center justify-center rounded-md transition-all duration-200 md:h-7 md:w-7",
+            // touch-manipulation: no 300ms double-tap-zoom wait in the WebView.
+            "inline-flex h-9 w-9 touch-manipulation items-center justify-center rounded-md transition-all duration-200 md:h-7 md:w-7",
             activeView === id
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted"

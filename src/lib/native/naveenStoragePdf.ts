@@ -86,20 +86,57 @@ export async function fetchNaveenStoragePdf(url: string, signal?: AbortSignal): 
   //   - APK: CapacitorHttp ignores CORS, so fetch the endpoint directly.
   //   - Web: the endpoint sends no CORS headers, so relay via pdf-proxy.
   const publicUrl = `${STORAGE_PUBLIC_PDF_BASE}${id}`;
+  let primaryError: unknown = null;
   try {
     const nativeDirect = await requestPdfViaNativeHttp(publicUrl, { signal });
-    if (nativeDirect) return nativeDirect;
+    // CapacitorHttp labels every 2xx body "application/pdf", so check the
+    // bytes: a Vercel error/challenge page must not reach the reader as a PDF.
+    if (nativeDirect) {
+      if (await looksLikePdf(nativeDirect)) return nativeDirect;
+      throw Object.assign(new Error("HTTP 415: web page instead of a PDF"), { status: 415 });
+    }
     const { remotePdfProxyUrl } = await import("../pdfViewerUrl");
     const resp = await fetch(remotePdfProxyUrl(publicUrl), { signal, credentials: "omit" });
     const ct = resp.headers.get("content-type") || "";
-    if (resp.ok && !/text\/html|application\/json/i.test(ct)) return await resp.blob();
+    if (resp.ok && !/text\/html|application\/json/i.test(ct)) {
+      const blob = await resp.blob();
+      if (await looksLikePdf(blob)) return blob;
+      throw Object.assign(new Error("HTTP 415: web page instead of a PDF"), { status: 415 });
+    }
     await resp.body?.cancel().catch(() => {});
     if (resp.status === 404) throw Object.assign(new Error("HTTP 404"), { status: 404 });
+    throw Object.assign(new Error(`HTTP ${resp.status}`), { status: resp.status });
   } catch (err) {
     if ((err as { name?: string })?.name === "AbortError") throw err;
     if ((err as { status?: number })?.status === 404) throw err;
-    // Anything else: fall through to the legacy edge-function path.
+    // Anything else: try the legacy edge-function path, but report THIS
+    // error if that fails too — the legacy path is known to be broken, and
+    // its "Document service didn't respond" hid the real reason.
+    primaryError = err;
   }
+
+  try {
+    return await fetchViaLegacyStorageProxy(id, signal);
+  } catch (legacyErr) {
+    if ((legacyErr as { name?: string })?.name === "AbortError") throw legacyErr;
+    throw primaryError ?? legacyErr;
+  }
+}
+
+/** True when the blob starts like a PDF (`%PDF-` within the first 1 KB). */
+export async function looksLikePdf(blob: Blob): Promise<boolean> {
+  try {
+    const head = new Uint8Array(await blob.slice(0, 1024).arrayBuffer());
+    for (let i = 0; i + 4 < head.length; i++) {
+      if (head[i] === 0x25 && head[i + 1] === 0x50 && head[i + 2] === 0x44 && head[i + 3] === 0x46 && head[i + 4] === 0x2d) return true;
+    }
+    return false;
+  } catch {
+    return true; // can't inspect — let the reader decide
+  }
+}
+
+async function fetchViaLegacyStorageProxy(id: string, signal?: AbortSignal): Promise<Blob> {
 
   // Route through our authenticated edge function. The upstream API key is
   // held server-side; this client only ever sends its own JWT + view_id.

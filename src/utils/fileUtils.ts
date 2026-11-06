@@ -4,7 +4,7 @@
  */
 import { isResolvableStorageViewerUrl, resolveStorageBytes } from "@/lib/native/naveenStoragePdf";
 import { addBreadcrumb } from "@/lib/sentry";
-import { downloadablePdfUrl } from "@/lib/pdfViewerUrl";
+import { downloadablePdfUrl, githubStoragesViewerToRaw } from "@/lib/pdfViewerUrl";
 
 
 /** Extract Google Drive file ID from various URL formats */
@@ -52,6 +52,11 @@ export const getArchiveDownloadUrl = async (identifier: string): Promise<string>
 
 /** Get a direct download URL for various sources (synchronous fallback) */
 export const getDownloadUrl = (url: string): string => {
+  // "Naveen Bharat Files" viewer links are web pages; download the real file
+  // instead of saving the viewer's HTML as a ".pdf" that never opens.
+  const viewerRaw = githubStoragesViewerToRaw(url);
+  if (viewerRaw) return viewerRaw;
+
   const driveId = extractDriveFileId(url);
   if (driveId && /drive\.google\.com/.test(url)) {
     return `https://drive.google.com/uc?export=download&id=${driveId}`;
