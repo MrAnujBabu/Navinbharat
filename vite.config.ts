@@ -174,7 +174,7 @@ export default defineConfig(({ mode }) => ({
         // modulepreloads avoids false cold-entry failures when Replit emits an
         // unminified-but-clean vendor-react chunk.
         if (hostType === 'html') {
-          return deps.filter((dep) => !/vendor-(react|motion|supabase|pdf|notion|charts|video|md|radix|query)-/.test(dep));
+          return deps.filter((dep) => !/vendor-(react|motion|supabase|pdf|notion|charts|video|md|query)-/.test(dep));
         }
         return deps;
       },
@@ -203,6 +203,11 @@ export default defineConfig(({ mode }) => ({
           groups: [
             // Highest priority — pinned vendor chunks. Higher priority wins on overlap.
             { name: 'vendor-react',     test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,                          priority: 100 },
+            // Tiny helpers shared by the first page AND the heavy PDF/Notion
+            // readers. Without this group Rolldown pulls them into vendor-pdf /
+            // vendor-notion, and the home page then downloads ~186KB gz of
+            // reader code just to get clsx / react-fast-compare.
+            { name: 'vendor-shared',    test: /[\\/]node_modules[\\/](clsx|react-fast-compare|@babel[\\/]runtime|tiny-invariant|dequal|warning|react-intersection-observer)[\\/]/, priority: 110 },
             { name: 'vendor-sentry',    test: /[\\/]node_modules[\\/]@sentry[\\/]/,                                              priority: 90 },
             { name: 'vendor-capacitor', test: /[\\/]node_modules[\\/](@capacitor|jeep-sqlite|sql\.js|@stencil)[\\/]/,            priority: 90 },
             { name: 'vendor-supabase',  test: /[\\/]node_modules[\\/](@supabase|postgrest-js|realtime-js|gotrue-js|storage-js)[\\/]/, priority: 80 },
@@ -223,7 +228,9 @@ export default defineConfig(({ mode }) => ({
             // Forms — used across many routes but grouped so its ~20KB gz stays one chunk.
             { name: 'vendor-forms',     test: /[\\/]node_modules[\\/](react-hook-form|@hookform\/resolvers|zod)[\\/]/,           priority: 70 },
             // Radix UI — used across many routes; grouping keeps shared UI chunk stable.
-            { name: 'vendor-radix',     test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,                                            priority: 65 },
+            // (vendor-radix group removed: one merged Radix chunk forced every page,
+            // including home, to download all Radix widgets. Each widget now ships
+            // with the page that uses it.)
             // Router — small but pinning it prevents it appearing in the entry chunk.
             { name: 'vendor-router',    test: /[\\/]node_modules[\\/](react-router|react-router-dom|history|@remix-run[\\/]router)[\\/]/, priority: 65 },
             // Query — used everywhere; single chunk avoids duplication across routes.
