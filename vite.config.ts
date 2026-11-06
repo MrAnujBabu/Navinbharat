@@ -203,6 +203,11 @@ export default defineConfig(({ mode }) => ({
           groups: [
             // Highest priority — pinned vendor chunks. Higher priority wins on overlap.
             { name: 'vendor-react',     test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,                          priority: 100 },
+            // Tiny helpers shared by the first page AND the heavy PDF/Notion
+            // readers. Without this group Rolldown pulls them into vendor-pdf /
+            // vendor-notion, and the home page then downloads ~186KB gz of
+            // reader code just to get clsx / react-fast-compare.
+            { name: 'vendor-shared',    test: /[\\/]node_modules[\\/](clsx|react-fast-compare|@babel[\\/]runtime|tiny-invariant|dequal|warning|react-intersection-observer)[\\/]/, priority: 110 },
             { name: 'vendor-sentry',    test: /[\\/]node_modules[\\/]@sentry[\\/]/,                                              priority: 90 },
             { name: 'vendor-capacitor', test: /[\\/]node_modules[\\/](@capacitor|jeep-sqlite|sql\.js|@stencil)[\\/]/,            priority: 90 },
             { name: 'vendor-supabase',  test: /[\\/]node_modules[\\/](@supabase|postgrest-js|realtime-js|gotrue-js|storage-js)[\\/]/, priority: 80 },
