@@ -78,3 +78,20 @@ describe("storage PDFs that are not really PDFs", () => {
     }
   });
 });
+
+describe("jsrstudy links pasted the way admins paste them", () => {
+  it("still open when pasted with spaces or without https://", () => {
+    const expected = "https://jsrstudy.vercel.app/api/public/pdf/b4e1e7e8-1d25-4f44-9ea7-181bda135965";
+    expect(naveenStoragePublicPdfUrl(`  ${JSR}  `)).toBe(expected);
+    expect(naveenStoragePublicPdfUrl(JSR.replace("https://", ""))).toBe(expected);
+    expect(isResolvableStorageViewerUrl(JSR.replace("https://", ""))).toBe(true);
+  });
+});
+
+describe("network failures", () => {
+  it("never show the raw 'Failed to fetch' to students", () => {
+    const msg = friendlyPdfErrorMessage(new TypeError("Failed to fetch"), JSR);
+    expect(msg).not.toBe("Failed to fetch");
+    expect(msg).toMatch(/Retry/);
+  });
+});

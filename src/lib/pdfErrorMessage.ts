@@ -120,5 +120,12 @@ export function friendlyPdfErrorMessage(err: unknown, src: string | null | undef
     return "The file download was cut short. Tap Retry to fetch a fresh copy.";
   }
 
+  // A bare browser network error ("Failed to fetch" / "Load failed") means the
+  // request never got a readable answer: offline, or a host that blocks the
+  // app (no CORS). Never show the raw browser wording to a student.
+  if (/^(TypeError:\s*)?(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)\s*$/i.test(msg.trim())) {
+    return "Couldn't reach this PDF. Check your internet and tap Retry. If it keeps failing, the link blocks the app — ask the admin to replace it.";
+  }
+
   return msg || "Failed to load PDF.";
 }

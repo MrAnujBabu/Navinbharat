@@ -20,9 +20,15 @@ const VIEW_ID_RE = /\/view\/([a-f0-9-]{20,})/i;
 // its own JWT; the edge function does the upstream calls with the
 // server-held key. Do NOT reintroduce the raw upstream key here.
 
+/** Admins paste links with stray spaces or without `https://`. */
+function parseStorageUrl(url: string): URL {
+  const t = (url || "").trim();
+  return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`);
+}
+
 export function isNaveenStorageViewUrl(url: string): boolean {
   try {
-    const u = new URL(url);
+    const u = parseStorageUrl(url);
     return STORAGE_HOST_RE.test(u.hostname) && VIEW_ID_RE.test(u.pathname);
   } catch {
     return false;
@@ -31,7 +37,7 @@ export function isNaveenStorageViewUrl(url: string): boolean {
 
 export function getNaveenStorageViewId(url: string): string | null {
   try {
-    const u = new URL(url);
+    const u = parseStorageUrl(url);
     if (!STORAGE_HOST_RE.test(u.hostname)) return null;
     return u.pathname.match(VIEW_ID_RE)?.[1] ?? null;
   } catch {
