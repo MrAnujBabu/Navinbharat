@@ -181,6 +181,16 @@ async function authorizeUrl(userId: string, url: string): Promise<boolean> {
       set.add(`https://archive.org/details/${a[1]}`);
       set.add(`https://archive.org/download/${a[1]}`);
     }
+    // Storage-site PDFs are stored as the `/view/<id>` page link (old or new
+    // host) but fetched from `jsrstudy.vercel.app/api/public/pdf/<id>`.
+    // Without these spellings every student got "Not authorized for this file".
+    const s = url.match(/^https:\/\/(?:jsrstudy|storage-naveenbharat-recording)\.vercel\.app\/(?:api\/public\/pdf|view)\/([a-f0-9-]{20,})/i);
+    if (s) {
+      for (const host of ["jsrstudy.vercel.app", "storage-naveenbharat-recording.vercel.app"]) {
+        set.add(`https://${host}/view/${s[1]}`);
+        set.add(`https://${host}/api/public/pdf/${s[1]}`);
+      }
+    }
     return [...set];
   })();
 
