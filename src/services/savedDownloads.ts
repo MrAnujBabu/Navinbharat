@@ -19,6 +19,7 @@ import {
   type DownloadRecord,
 } from "../lib/indexedDB";
 import { isResolvableStorageViewerUrl, resolveStorageBytes } from "@/lib/native/naveenStoragePdf";
+import { githubStoragesViewerToRaw } from "@/lib/pdfViewerUrl";
 import { reportError, addBreadcrumb } from "../lib/sentry";
 
 /**
@@ -228,12 +229,15 @@ export async function saveAndIndexDownload(
   onProgress?: (percent: number) => void
 ): Promise<SaveDownloadResult> {
   const { title, url, fileType = "PDF", blob: providedBlob } = input;
+  // Viewer-page links (github-storages-cdn /v/…) are fetched as the real file;
+  // the saved record keeps the original link so the lesson finds its copy.
+  const srcUrl = githubStoragesViewerToRaw(url) ?? url;
   const filename = sanitize(input.filename);
   const fs = await getFS();
   const fetchBlob = async (): Promise<Blob> => {
     if (providedBlob) return providedBlob;
-    if (isResolvableStorageViewerUrl(url)) return resolveStorageBytes(url);
-    const res = await fetch(url, { credentials: "omit" });
+    if (isResolvableStorageViewerUrl(srcUrl)) return resolveStorageBytes(srcUrl);
+    const res = await fetch(srcUrl, { credentials: "omit" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.blob();
   };
@@ -327,7 +331,7 @@ export async function saveAndIndexDownload(
     // `https://localhost`, so any cross-origin `fetch()` to Bunny/Supabase
     // CDNs fails in release builds), avoids 100% RAM use for large PDFs,
     // and skips the JS-side base64 encode entirely.
-    const isRemoteHttp = !providedBlob && !isResolvableStorageViewerUrl(url) && /^https?:\/\//i.test(url);
+    const isRemoteHttp = !providedBlob && !isResolvableStorageViewerUrl(srcUrl) && /^https?:\/\//i.test(srcUrl);
     if (isRemoteHttp) {
       try {
         const dl = await (fs.Filesystem as unknown as {
@@ -338,7 +342,7 @@ export async function saveAndIndexDownload(
             recursive?: boolean;
           }) => Promise<{ path?: string; blob?: Blob }>;
         }).downloadFile({
-          url,
+          url: srcUrl,
           path,
           directory: saveDir as never,
           recursive: true,
@@ -370,9 +374,9 @@ export async function saveAndIndexDownload(
       }
     }
 
-    const resp = providedBlob || isResolvableStorageViewerUrl(url)
+    const resp = providedBlob || isResolvableStorageViewerUrl(srcUrl)
       ? null
-      : await fetch(url, { credentials: "omit" });
+      : await fetch(srcUrl, { credentials: "omit" });
     if (resp && !resp.ok) throw new Error(`HTTP ${resp.status}`);
     const mime = resp?.headers.get("content-type") || providedBlob?.type || undefined;
     const total = Number(resp?.headers.get("content-length")) || providedBlob?.size || 0;
@@ -384,7 +388,7 @@ export async function saveAndIndexDownload(
     if (!resp) {
       // Pre-supplied blob OR resolvable viewer URL → chunked write. Never
       // materialize a full PDF as ArrayBuffer/base64 in the WebView heap.
-      const blob = providedBlob ?? (await resolveStorageBytes(url));
+      const blob = providedBlob ?? (await resolveStorageBytes(srcUrl));
       loaded = await writeBlobChunked(fs, blob, path, saveDir, onProgress);
       onProgress?.(100);
     } else if (!reader) {

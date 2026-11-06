@@ -9,6 +9,7 @@
  */
 import { libraryDB, type LibraryRecord } from "../lib/libraryDB";
 import { isResolvableStorageViewerUrl, resolveStorageBytes } from "@/lib/native/naveenStoragePdf";
+import { githubStoragesViewerToRaw } from "@/lib/pdfViewerUrl";
 
 const DIR = "pdfs";
 
@@ -173,7 +174,9 @@ export async function downloadPdf(
   onProgress?: (p: DownloadProgress) => void
 ): Promise<LibraryRecord> {
   const fs = await getFS();
-  const fetchUrl = sanitizeUrl(meta.url);
+  // Viewer-page links (github-storages-cdn /v/…) download the real file.
+  const cleanUrl = sanitizeUrl(meta.url);
+  const fetchUrl = githubStoragesViewerToRaw(cleanUrl) ?? cleanUrl;
   if (!fs) {
     // Web fallback — fetch as blob and trigger a real "Save as" via <a download>.
     // Also index the record so the card shows an "Open" button afterwards.

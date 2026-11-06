@@ -989,7 +989,10 @@ const MyCourseDetail = () => {
               </button>
             </div>
             {/* Mobile: ultra-compact control strip (back + resume + chapters) */}
-            <div className="md:hidden flex items-center gap-1 px-2 h-9 border-b">
+            {/* min-h fits the 44px mobile touch targets (global rule in index.css)
+                plus a 4px gap above/below — the old fixed h-9 (36px) let the
+                view switcher spill over and touch the app header. */}
+            <div className="md:hidden flex items-center gap-1 px-2 py-1 min-h-[52px] border-b">
               <button
                 onClick={() => { if (!closeOneLevel()) navigate("/my-courses"); }}
                 className="inline-flex items-center justify-center h-8 w-8 -ml-1 rounded-lg text-foreground hover:bg-muted transition-colors active:scale-95"

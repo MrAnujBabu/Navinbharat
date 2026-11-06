@@ -25,14 +25,21 @@ export const ContentViewSwitcher = ({ activeView, onViewChange, modes }: Content
     (a, b) => modes.indexOf(a.id) - modes.indexOf(b.id),
   ) : views;
   return (
-    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+    // nb-tap-exempt: the global 44px mobile touch floor made each button
+    // taller than the toolbar strip, so the active pill touched the header.
+    // Buttons get an explicit 36px (mobile) / 28px (desktop) size instead.
+    <div className="nb-tap-exempt flex items-center gap-1 bg-muted/50 rounded-lg p-1">
       {shown.map(({ id, icon: Icon, label }) => (
         <button
           key={id}
+          type="button"
           onClick={() => onViewChange(id)}
           title={label}
+          aria-label={`${label} view`}
+          aria-pressed={activeView === id}
           className={cn(
-            "p-1.5 rounded-md transition-all duration-200",
+            // touch-manipulation: no 300ms double-tap-zoom wait in the WebView.
+            "inline-flex h-9 w-9 touch-manipulation items-center justify-center rounded-md transition-all duration-200 md:h-7 md:w-7",
             activeView === id
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted"

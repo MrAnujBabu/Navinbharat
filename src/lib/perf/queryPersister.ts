@@ -115,6 +115,44 @@ function containsNonSerializable(value: unknown, depth = 0): boolean {
   return false;
 }
 
+/**
+ * Supabase signed storage URLs (`/storage/v1/object/sign/...?token=<JWT>`)
+ * stop working when their token expires (1h for course art). The persister
+ * keeps queries for up to 24h, so a cold APK launch used to hydrate the
+ * Courses catalog with dead image links — every thumbnail 400'd and fell back
+ * to the placeholder. Any persisted query holding an expired (or nearly
+ * expired) signed URL is dropped so it refetches and re-signs instead.
+ */
+const SIGNED_URL_RE = /\/storage\/v1\/object\/sign\/[^"'\s]*[?&]token=([A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+)/g;
+const SIGNED_URL_SKEW_MS = 5 * 60 * 1000;
+
+function signedUrlExpiryMs(payloadSegment: string): number | null {
+  try {
+    const b64 = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasExpiredSignedUrl(data: unknown, now: number = Date.now()): boolean {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(data) ?? "";
+  } catch {
+    return false;
+  }
+  if (!serialized.includes("/storage/v1/object/sign/")) return false;
+  for (const match of serialized.matchAll(SIGNED_URL_RE)) {
+    const exp = signedUrlExpiryMs(match[2]);
+    // Unreadable token → treat as expired; refetching is always safe.
+    if (exp === null || exp - SIGNED_URL_SKEW_MS <= now) return true;
+  }
+  return false;
+}
+
 export async function hydrateQueryCache(client: QueryClient) {
   purgeLegacy();
   try {
@@ -127,7 +165,11 @@ export async function hydrateQueryCache(client: QueryClient) {
     for (const q of parsed.queries) {
       // Hydrate stale data; React Query will refetch in the background.
       if (now - q.dataUpdatedAt > 1000 * 60 * 60 * 24) continue; // drop >24h old
-      client.setQueryData(q.key, q.data);
+      if (hasExpiredSignedUrl(q.data, now)) continue; // dead image/file links
+      // Keep the ORIGINAL timestamp. Without `updatedAt`, setQueryData stamps
+      // the data as fetched "now", so hours-old cache counted as fresh and
+      // screens skipped their refetch for a full staleTime window.
+      client.setQueryData(q.key, q.data, { updatedAt: q.dataUpdatedAt });
     }
   } catch {
     /* corrupt cache — ignore */
