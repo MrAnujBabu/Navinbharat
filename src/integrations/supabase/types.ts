@@ -1662,6 +1662,7 @@ export type Database = {
           lesson_id: string
           updated_at: string
           user_id: string
+          watched_intervals: Json
           watched_seconds: number
         }
         Insert: {
@@ -1671,6 +1672,7 @@ export type Database = {
           lesson_id: string
           updated_at?: string
           user_id: string
+          watched_intervals?: Json
           watched_seconds?: number
         }
         Update: {
@@ -1680,6 +1682,7 @@ export type Database = {
           lesson_id?: string
           updated_at?: string
           user_id?: string
+          watched_intervals?: Json
           watched_seconds?: number
         }
         Relationships: []

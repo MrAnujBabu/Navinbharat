@@ -53,7 +53,7 @@ const mapRow = (n: NoticeRow): Notice => ({
 const fetchNoticesFromDb = async (): Promise<Notice[]> => {
   const { data, error } = await supabase
     .from("notices")
-    .select("id,title,content,author_id,author_name,is_pinned,expires_at,created_at,updated_at")
+    .select("id,title,content,author_id,is_pinned,target_role,expires_at,created_at,pdf_url")
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(200);

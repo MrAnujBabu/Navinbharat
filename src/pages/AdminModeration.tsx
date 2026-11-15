@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import Header from "../components/Layout/Header";
@@ -12,6 +12,7 @@ import BatchCommentsPanel from "../components/admin/BatchCommentsPanel";
 import { toast } from "sonner";
 import { EyeOff, Eye, Flag, RefreshCw, ShieldAlert } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { isActionableReport, MODERATION_SOURCES } from "../lib/moderation";
 
 type ContentType = "post" | "comment" | "reply";
 
@@ -45,30 +46,37 @@ const AdminModeration = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  // Guards against a slow response for a previous tab overwriting the list
+  // (and Hide then acting on rows of the wrong content type).
+  const requestIdRef = useRef(0);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate("/admin/login"); }, [authLoading, isAdmin, navigate]);
 
   const fetchItems = async () => {
+    const requestId = ++requestIdRef.current;
     if (tab === "lesson") { setLoading(false); return; } // handled by <BatchCommentsPanel />
     setLoading(true);
     if (tab === "reports") {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("content_reports")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
+      if (requestId !== requestIdRef.current) return;
+      if (error) toast.error(error.message);
       setReports((data ?? []) as Report[]);
     } else {
-      const table = tab === "posts" ? "community_posts" : tab === "comments" ? "community_comments" : "doubt_replies";
-      const bodyCol = tab === "replies" ? "message" : "body";
+      setItems([]);
+      const { table, authorCol, bodyCol } = MODERATION_SOURCES[tab];
       const { data, error } = await supabase
         .from(table as "community_posts")
-        .select(`id, user_id, ${bodyCol}, created_at, is_hidden, hidden_reason`)
+        .select(`id, ${authorCol}, ${bodyCol}, created_at, is_hidden, hidden_reason`)
         .order("created_at", { ascending: false })
         .limit(200);
+      if (requestId !== requestIdRef.current) return;
       if (error) toast.error(error.message);
       setItems(((data ?? []) as unknown as ModerationRawRow[]).map((r) => ({
-        id: String(r.id), user_id: String(r.user_id ?? ""), body: String(r[bodyCol] ?? ""), created_at: String(r.created_at ?? ""),
+        id: String(r.id), user_id: String(r[authorCol] ?? ""), body: String(r[bodyCol] ?? ""), created_at: String(r.created_at ?? ""),
         is_hidden: !!r.is_hidden, hidden_reason: (r.hidden_reason as string | null) ?? null,
       })));
     }
@@ -101,9 +109,9 @@ const AdminModeration = () => {
   return (
     <div className="min-h-dvh bg-background flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-h-dvh">
+      <div className="flex-1 flex flex-col min-h-dvh min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 space-y-4">
+        <main className="flex-1 min-w-0 p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <ShieldAlert className="h-6 w-6 text-primary" /> Moderation
@@ -114,12 +122,12 @@ const AdminModeration = () => {
           </div>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as ModerationTab)}>
-            <TabsList>
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="comments">Comments</TabsTrigger>
-              <TabsTrigger value="lesson">Lesson Comments</TabsTrigger>
-              <TabsTrigger value="replies">Doubt Replies</TabsTrigger>
-              <TabsTrigger value="reports"><Flag className="h-3.5 w-3.5 mr-1" />Reports</TabsTrigger>
+            <TabsList className="max-w-full justify-start overflow-x-auto scrollbar-hide">
+              <TabsTrigger value="posts" className="shrink-0">Posts</TabsTrigger>
+              <TabsTrigger value="comments" className="shrink-0">Comments</TabsTrigger>
+              <TabsTrigger value="lesson" className="shrink-0">Lesson Comments</TabsTrigger>
+              <TabsTrigger value="replies" className="shrink-0">Doubt Replies</TabsTrigger>
+              <TabsTrigger value="reports" className="shrink-0"><Flag className="h-3.5 w-3.5 mr-1" />Reports</TabsTrigger>
             </TabsList>
 
             {tab === "lesson" ? (
@@ -163,14 +171,14 @@ const AdminModeration = () => {
                       <div key={r.id} className="flex items-start gap-3 px-4 py-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant={r.status === "pending" ? "default" : "secondary"} className="text-[10px] uppercase">{r.status}</Badge>
+                            <Badge variant={isActionableReport(r.status) ? "default" : "secondary"} className="text-[10px] uppercase">{r.status}</Badge>
                             <Badge variant="outline" className="text-[10px]">{r.content_type}</Badge>
                             <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
                           </div>
                           <p className="text-sm text-foreground line-clamp-3">{r.reason}</p>
                           <p className="text-[11px] text-muted-foreground mt-1 font-mono">target {r.content_id.slice(0, 8)}</p>
                         </div>
-                        {r.status === "pending" && (
+                        {isActionableReport(r.status) && (
                           <div className="flex flex-col gap-1">
                             <Button size="sm" variant="outline" onClick={() => resolveReport(r.id, "resolved")}>Resolve</Button>
                             <Button size="sm" variant="ghost" onClick={() => resolveReport(r.id, "dismissed")}>Dismiss</Button>

@@ -20,8 +20,7 @@ import {
   Upload, Video, FileText, LogOut, Trash2,
   BookOpen, Shield, Loader2, FileUp, Link as LinkIcon,
   ChevronRight, ClipboardCheck, Plus, FolderPlus, FolderOpen, GripVertical, Camera,
-  Pencil, X, Save, Paperclip, ImageIcon,
-} from "lucide-react";
+  Pencil, X, Save, Paperclip, ImageIcon, LayoutDashboard } from "lucide-react";
 import logo from "../assets/branding/nb-mark.webp";
 import MediaPreview from "../components/admin/MediaPreview";
 import { useLessonPdfs, type LessonPdf } from "../hooks/useLessonPdfs";
@@ -1120,8 +1119,9 @@ const AdminUpload = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin')} className="text-video-scrim-foreground border-white/30 hover:bg-white/10 text-xs hidden sm:flex">
-              Dashboard
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin')} aria-label="Dashboard" className="bg-transparent text-video-scrim-foreground border-white/30 hover:bg-white/10 hover:text-video-scrim-foreground text-xs gap-1.5">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-video-scrim-foreground hover:bg-white/10" aria-label="Log out">
               <LogOut className="h-4 w-4" />

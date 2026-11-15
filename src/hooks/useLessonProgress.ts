@@ -101,9 +101,13 @@ export function useLessonProgress(
       return;
     }
     try {
-      await supabase
+      // supabase-js reports failures (including network drops) through the
+      // returned `error`, it does not throw — surface it so the save is queued
+      // for retry instead of being silently lost.
+      const { error } = await supabase
         .from("lesson_progress" as never)
         .upsert(payload as never, { onConflict: "user_id,lesson_id" } as never);
+      if (error) throw error;
     } catch (err) {
       console.debug("[lesson_progress] upsert failed → queued", err);
       enqueueMutation("lesson_progress.upsert", payload);

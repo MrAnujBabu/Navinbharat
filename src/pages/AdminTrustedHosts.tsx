@@ -163,7 +163,7 @@ export default function AdminTrustedHosts() {
       <Header onMenuClick={() => setSidebarOpen(true)} />
       <div className="flex">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 max-w-6xl mx-auto w-full">
+        <main className="flex-1 min-w-0 p-4 md:p-6 pb-20 md:pb-6 max-w-6xl mx-auto w-full">
           <div className="flex flex-wrap items-start gap-2 sm:gap-3 mb-6">
             <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
@@ -190,11 +190,11 @@ export default function AdminTrustedHosts() {
           </div>
 
           <Tabs defaultValue="pdf">
-            <TabsList>
-              <TabsTrigger value="pdf">PDF Links</TabsTrigger>
-              <TabsTrigger value="list">All Hosts ({hosts.length})</TabsTrigger>
-              <TabsTrigger value="csp">CSP Snippet</TabsTrigger>
-              <TabsTrigger value="help">How it works</TabsTrigger>
+            <TabsList className="max-w-full justify-start overflow-x-auto scrollbar-hide">
+              <TabsTrigger value="pdf" className="shrink-0">PDF Links</TabsTrigger>
+              <TabsTrigger value="list" className="shrink-0">All Hosts ({hosts.length})</TabsTrigger>
+              <TabsTrigger value="csp" className="shrink-0">CSP Snippet</TabsTrigger>
+              <TabsTrigger value="help" className="shrink-0">How it works</TabsTrigger>
             </TabsList>
 
             {/* PDF LINKS */}

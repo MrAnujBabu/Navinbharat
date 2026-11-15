@@ -64,9 +64,9 @@ const AdminBatchMonitor = () => {
   return (
     <div className="min-h-dvh bg-background flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-h-dvh">
+      <div className="flex-1 flex flex-col min-h-dvh min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 space-y-4">
+        <main className="flex-1 min-w-0 p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <GraduationCap className="h-6 w-6 text-primary" /> Batch Monitor
@@ -100,9 +100,9 @@ const AdminBatchMonitor = () => {
           </div>
 
           <Tabs defaultValue="students">
-            <TabsList>
-              <TabsTrigger value="students">Students ({rows.length})</TabsTrigger>
-              <TabsTrigger value="comments">Comments</TabsTrigger>
+            <TabsList className="max-w-full justify-start overflow-x-auto scrollbar-hide">
+              <TabsTrigger value="students" className="shrink-0">Students ({rows.length})</TabsTrigger>
+              <TabsTrigger value="comments" className="shrink-0">Comments</TabsTrigger>
             </TabsList>
 
             <TabsContent value="students" className="mt-4 space-y-3">
