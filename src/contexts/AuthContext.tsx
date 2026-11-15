@@ -4,7 +4,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { queryClient, SELF_PROFILE_KEY } from "../lib/queryClient";
 import { checkPasswordStrength } from "../lib/passwordStrength";
 import { leakedPasswordError } from "../lib/leakedPassword";
-import { blockedAccountMessage, shouldEnforceBlock } from "../lib/accountBlock";
+import { BLOCKED_ACCOUNT_MESSAGE, clearBlockedNotice, rememberBlockedNotice, shouldEnforceBlock } from "../lib/accountBlock";
 import { toast } from "sonner";
 
 export type AppRole = "admin" | "student" | "teacher";
@@ -88,7 +88,7 @@ async function fetchUserData(
   const defaults = makeDefaults(supabaseUser);
   try {
     const [profileResult, roleResult] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, avatar_url, mobile, is_blocked, blocked_reason").eq("id", supabaseUser.id).single().then(r => r, e => ({ data: null, error: e })),
+      supabase.from("profiles").select("id, full_name, email, avatar_url, mobile, is_blocked").eq("id", supabaseUser.id).single().then(r => r, e => ({ data: null, error: e })),
       supabase.rpc("get_user_role", { _user_id: supabaseUser.id }).then(r => r, e => ({ data: null, error: e })),
     ]);
 
@@ -132,9 +132,7 @@ async function fetchUserData(
       user: { id: supabaseUser.id, email, fullName, role },
       profile: { id: supabaseUser.id, email, fullName, avatarUrl: profileData?.avatar_url ?? null, mobile: profileData?.mobile ?? null },
       role,
-      blockedMessage: shouldEnforceBlock(profileData?.is_blocked, role)
-        ? blockedAccountMessage(profileData?.blocked_reason)
-        : null,
+      blockedMessage: shouldEnforceBlock(profileData?.is_blocked, role) ? BLOCKED_ACCOUNT_MESSAGE : null,
     };
   } catch (err) {
     // Route to Sentry instead of a silent console.warn — this branch swallows
@@ -178,12 +176,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (data.blockedMessage) {
           // Admin blocked this account: end the session instead of letting
           // the student keep using the app.
+          rememberBlockedNotice();
           toast.error(data.blockedMessage, { id: "account-blocked", duration: 10000 });
           applyUser(null);
           setRoleLoaded(false);
           void supabase.auth.signOut();
           return;
         }
+        clearBlockedNotice();
         applyUser(data);
         setRoleLoaded(true);
       }

@@ -11,6 +11,7 @@ import { tapHaptic } from "@/lib/native/haptics";
 import { validateEmailDomain } from "../lib/emailBlocklist";
 import { getNetworkStatus } from "@/lib/native/network";
 import { getErrorMessage } from "@/lib/errorMessage";
+import { clearBlockedNotice, readBlockedNotice } from "../lib/accountBlock";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -23,6 +24,14 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Explain a sign-out caused by an admin block (set by AuthContext). Runs on
+  // mount and whenever the session ends while this page is open.
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const notice = readBlockedNotice();
+    if (notice) { setErrorMessage(notice); setIsNetworkError(false); }
+  }, [isAuthenticated]);
 
   // Navigate when authenticated
   useEffect(() => {
@@ -48,6 +57,7 @@ const Login = () => {
     void tapHaptic("light");
     setErrorMessage(null);
     setIsNetworkError(false);
+    clearBlockedNotice();
 
     if (!email || !password) { setErrorMessage("Please fill in all fields"); return; }
     // Capacitor-aware net check — `navigator.onLine` lies through captive portals.
