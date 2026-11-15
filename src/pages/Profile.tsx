@@ -52,18 +52,22 @@ const Profile = () => {
   // Re-sync local UI when the AuthContext cache hydrates AFTER first render
   // (cold refresh path). Prevents the white-screen "crash" where `profile`
   // stayed null because `initialProfile` was captured before auth was ready.
+  // The first paint can come from the quick sign-in defaults (sign-up name, no
+  // mobile); when the saved profile arrives it must replace them, otherwise a
+  // saved name change looked lost after reopening the page.
   useEffect(() => {
     if (!authProfile) return;
-    setProfile((prev: ProfileState) => prev ?? {
+    setProfile((prev: ProfileState) => ({
+      ...(prev ?? {}),
       id: authProfile.id,
       email: authProfile.email,
       full_name: authProfile.fullName,
       avatar_url: authProfile.avatarUrl,
       mobile: authProfile.mobile,
-    });
+    }));
     if (!isEditing) {
-      setNameInput((n) => n || authProfile.fullName || "");
-      setMobileInput((m) => m || authProfile.mobile || "");
+      setNameInput(authProfile.fullName || "");
+      setMobileInput(authProfile.mobile || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authProfile?.id, authProfile?.fullName, authProfile?.avatarUrl, authProfile?.mobile]);

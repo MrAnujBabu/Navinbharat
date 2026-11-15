@@ -155,8 +155,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isMounted = useRef(true);
   const loadCounter = useRef(0);
 
+  // Which user's data is currently on screen. The quick "defaults" (sign-up
+  // name, no avatar/mobile) are only for the first paint of a new session:
+  // applying them again on a token refresh (~hourly) used to wipe the loaded
+  // name, photo and mobile until the next full sign-in.
+  const shownUserIdRef = useRef<string | null>(null);
+
   const applyUser = useCallback((data: LoadedUser | null) => {
     if (!isMounted.current) return;
+    shownUserIdRef.current = data ? data.user.id : null;
     if (data) {
       setUser(data.user);
       setProfile(data.profile);
@@ -218,8 +225,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         // Set defaults synchronously for instant UI, then enrich in background
-        const defaults = makeDefaults(session.user);
-        applyUser(defaults);
+        // (only when nothing is on screen for this user yet).
+        if (shownUserIdRef.current !== session.user.id) applyUser(makeDefaults(session.user));
         const needsEnrich =
           enrichedFor !== session.user.id ||
           event === "SIGNED_IN" ||
@@ -249,8 +256,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (isMounted.current) {
         if (session?.user) {
-          const defaults = makeDefaults(session.user);
-          applyUser(defaults);
+          if (shownUserIdRef.current !== session.user.id) applyUser(makeDefaults(session.user));
           if (enrichedFor !== session.user.id) {
             enrichedFor = session.user.id;
             loadUser(session.user); // fire-and-forget enrichment
