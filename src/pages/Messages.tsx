@@ -113,12 +113,12 @@ const Messages = () => {
       // Fetch profile info for all contacts
       const contactIds = Array.from(contactMap.keys());
       
-      // Also fetch all profiles for new chat search. Uses the profiles_public
-      // view (id, full_name, avatar_url only) — base profiles table SELECT is
-      // owner+staff scoped since 2026-07-15 to prevent PII enumeration.
+      // People this user may chat with (name + photo only). profiles_public
+      // follows the profiles RLS, so a student only ever saw themselves and
+      // the list was always empty. get_message_contacts returns teachers and
+      // admins plus existing conversations for students, and everyone for staff.
       const { data: profiles } = await supabase
-        .from("profiles_public")
-        .select("id, full_name, avatar_url")
+        .rpc("get_message_contacts")
         .abortSignal(signal);
 
       if (signal.aborted || !aliveRef.current) return;

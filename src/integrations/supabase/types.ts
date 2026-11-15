@@ -3641,6 +3641,15 @@ export type Database = {
         }[]
       }
       get_dashboard_snapshot: { Args: never; Returns: Json }
+      get_message_contacts: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          id: string
+          is_staff: boolean
+        }[]
+      }
       get_platform_stats: { Args: never; Returns: Json }
       get_quiz_questions: {
         Args: { _quiz_id: string }
