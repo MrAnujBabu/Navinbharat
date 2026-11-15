@@ -32,6 +32,7 @@ import { getErrorMessage } from "@/lib/errorMessage";
 import { ExternalLink } from "lucide-react";
 import { rememberPendingPayment } from "../lib/pendingPayment";
 import { APP_LINK_HOSTS } from "@/config/deepLinks";
+import { claimFreeEnroll, failFreeEnroll, finishFreeEnroll, freeEnrollKey, recentFreeEnroll } from "@/lib/freeEnrollDedupe";
 
 /**
  * Opens the SAME Razorpay order in the phone's real browser (`/pay`), where
@@ -122,6 +123,13 @@ const BuyCourse = () => {
 
   const handleFreeEnrollment = async (courseIdNum: number) => {
     if (!user) return;
+    const key = freeEnrollKey(user.id, courseIdNum);
+    const claim = claimFreeEnroll(key);
+    if (claim !== "start") {
+      // Another mount of this page owns the attempt and reports the outcome.
+      if (claim === "done") navigate(`/my-courses`);
+      return;
+    }
     try {
       const { data: existing } = await supabase
         .from("enrollments")
@@ -132,7 +140,8 @@ const BuyCourse = () => {
         .maybeSingle();
 
       if (existing) {
-        toast.info("You're already enrolled in this course!");
+        finishFreeEnroll(key);
+        toast.info("You're already enrolled in this course!", { id: "already-enrolled" });
         navigate(`/my-courses`);
         return;
       }
@@ -148,8 +157,9 @@ const BuyCourse = () => {
       if (error) throw error;
       if (!result?.enrolled) throw new Error(result?.error || "ENROLL_FAILED");
 
+      finishFreeEnroll(key);
       if (result.already) {
-        toast.info("You're already enrolled in this course!");
+        toast.info("You're already enrolled in this course!", { id: "already-enrolled" });
         navigate(`/my-courses`);
         return;
       }
@@ -158,6 +168,7 @@ const BuyCourse = () => {
       toast.success("Free enrollment successful! Starting your course...");
       navigate(`/my-courses`);
     } catch (error: unknown) {
+      failFreeEnroll(key); // let the student retry
       logger.error("Free enrollment error:", error);
       toast.error("Failed to enroll. Please try again.");
     }
@@ -178,7 +189,10 @@ const BuyCourse = () => {
           .maybeSingle();
 
         if (enrollment) {
-          toast.info("You're already enrolled in this course!");
+          // A free auto-enroll for this course reports its own outcome.
+          const recent = recentFreeEnroll(freeEnrollKey(user.id, Number(courseId)));
+          if (recent) { if (recent === "done") navigate(`/my-courses`); return; }
+          toast.info("You're already enrolled in this course!", { id: "already-enrolled" });
           navigate(`/my-courses`);
           return;
         }
