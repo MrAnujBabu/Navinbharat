@@ -3656,6 +3656,14 @@ export type Database = {
           quiz_id: string
         }[]
       }
+      get_quiz_rank: {
+        Args: { _attempt_id: string }
+        Returns: {
+          participants: number
+          percentile: number
+          rank: number
+        }[]
+      }
       get_quiz_review: {
         Args: { _attempt_id: string }
         Returns: {

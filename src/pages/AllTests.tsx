@@ -32,6 +32,12 @@ interface TestLesson {
   quizId: string | null;
 }
 
+interface LastAttempt {
+  attemptId: string;
+  score: number;
+  totalMarks: number | null;
+}
+
 type CategoryTab = "all" | "mock" | "chapter" | "dpp" | "dpp-attempt" | "previous" | "practice";
 
 const AllTests = () => {
@@ -40,6 +46,7 @@ const AllTests = () => {
   const { selectedBatch } = useBatch();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tests, setTests] = useState<TestLesson[]>([]);
+  const [lastAttempts, setLastAttempts] = useState<Record<string, LastAttempt>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<CategoryTab>("all");
@@ -123,7 +130,34 @@ const AllTests = () => {
           };
         });
 
-        setTests([...allTests, ...standaloneTests]);
+        const combined = [...allTests, ...standaloneTests];
+        setTests(combined);
+
+        // Latest submitted attempt per quiz for this student, so attempted
+        // tests show the score and open the result instead of "Start Quiz".
+        const quizIds = combined.map((t) => t.quizId).filter((id): id is string => !!id);
+        if (user?.id && quizIds.length > 0) {
+          const { data: attempts } = await supabase
+            .from("quiz_attempts")
+            .select("id, quiz_id, score, submitted_at, quizzes(total_marks)")
+            .eq("user_id", user.id)
+            .in("quiz_id", quizIds)
+            .not("submitted_at", "is", null)
+            .order("submitted_at", { ascending: false });
+          const byQuiz: Record<string, LastAttempt> = {};
+          for (const a of attempts || []) {
+            if (byQuiz[a.quiz_id]) continue;
+            const quizRel = a.quizzes as { total_marks: number | null } | null;
+            byQuiz[a.quiz_id] = {
+              attemptId: a.id,
+              score: a.score ?? 0,
+              totalMarks: quizRel?.total_marks ?? null,
+            };
+          }
+          setLastAttempts(byQuiz);
+        } else {
+          setLastAttempts({});
+        }
       } catch (err) {
         reportError(err, { surface: "AllTests.fetch" });
       } finally {
@@ -132,7 +166,7 @@ const AllTests = () => {
     };
 
     fetchTests();
-  }, [selectedBatch]);
+  }, [selectedBatch, user?.id]);
 
   const filteredTests = tests
     .filter((t) => {
@@ -165,7 +199,10 @@ const AllTests = () => {
   ];
 
   const handleTestClick = (test: TestLesson) => {
-    if (test.quizId) {
+    const last = test.quizId ? lastAttempts[test.quizId] : undefined;
+    if (test.quizId && last) {
+      navigate(`/quiz/${test.quizId}/result/${last.attemptId}`);
+    } else if (test.quizId) {
       navigate(`/quiz/${test.quizId}`);
     } else if (test.videoUrl) {
       void openResource({ url: test.videoUrl });
@@ -245,7 +282,9 @@ const AllTests = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredTests.map((test) => (
+            {filteredTests.map((test) => {
+              const last = test.quizId ? lastAttempts[test.quizId] : undefined;
+              return (
               <div
                 key={test.id}
                 onClick={() => handleTestClick(test)}
@@ -263,7 +302,12 @@ const AllTests = () => {
                     {test.category && (
                       <Badge variant="secondary" className="text-[10px]">{test.category}</Badge>
                     )}
-                    {test.quizId && (
+                    {test.quizId && last && (
+                      <Badge variant="default" className="text-[10px]">
+                        Score {last.score}{last.totalMarks ? `/${last.totalMarks}` : ""}
+                      </Badge>
+                    )}
+                    {test.quizId && !last && (
                       <Badge variant="default" className="text-[10px]">Quiz Ready</Badge>
                     )}
                     {test.createdAt && (
@@ -274,11 +318,12 @@ const AllTests = () => {
                     )}
                   </div>
                 </div>
-                <Button size="sm" variant={test.quizId ? "default" : "outline"} className="shrink-0">
-                  {test.quizId ? "Start Quiz" : "Open"}
+                <Button size="sm" variant={test.quizId && !last ? "default" : "outline"} className="shrink-0">
+                  {test.quizId ? (last ? "View Result" : "Start Quiz") : "Open"}
                 </Button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

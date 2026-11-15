@@ -297,6 +297,7 @@ const Community = () => {
   };
 
   const handleDeleteComment = async (commentId: string, postId: string) => {
+    if (!(await confirmAction({ title: "Delete this comment?", variant: "destructive" }))) return;
     const { error } = await supabase.from("community_comments").delete().eq("id", commentId);
     if (error) return toast.error(error.message);
     setComments(c => ({ ...c, [postId]: (c[postId] ?? []).filter(x => x.id !== commentId) }));
@@ -451,10 +452,13 @@ const Community = () => {
                             </div>
                             {(c.user_id === user?.id || isAdmin) && (
                               <button
+                                type="button"
+                                aria-label="Delete comment"
+                                title="Delete comment"
                                 onClick={() => handleDeleteComment(c.id, post.id)}
-                                className="text-muted-foreground hover:text-destructive"
+                                className="-m-2 shrink-0 rounded-md p-2 text-muted-foreground hover:text-destructive"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             )}
                           </div>

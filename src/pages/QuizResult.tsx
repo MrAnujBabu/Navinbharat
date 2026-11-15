@@ -92,6 +92,7 @@ const QuizResult = () => {
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [rank, setRank] = useState<number | null>(null);
   const [totalParticipants, setTotalParticipants] = useState<number | null>(null);
+  const [percentile, setPercentile] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"summary" | "expert" | "leaderboard">("summary");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -148,28 +149,22 @@ const QuizResult = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- navigate identity is stable from react-router; adding it would not change behavior but is omitted intentionally to keep this effect scoped to route param changes
   }, [quizId, attemptId]);
 
-  // Compute live rank against all other students' best attempts on this quiz
+  // Rank + percentile among every student's best submitted attempt on this
+  // quiz. Students can only read their own attempts, so the comparison runs
+  // in the `get_quiz_rank` RPC, which returns counts only (no other scores).
   useEffect(() => {
-    if (!quizId || !attempt) return;
+    if (!attempt?.id || !attempt.submitted_at) return;
+    let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("quiz_attempts")
-        .select("user_id, score")
-        .eq("quiz_id", quizId);
-      if (error || !data) return;
-      const bestByUser = new Map<string, number>();
-      for (const row of data) {
-        const prev = bestByUser.get(row.user_id) ?? -Infinity;
-        if ((row.score ?? 0) > prev) bestByUser.set(row.user_id, row.score ?? 0);
-      }
-      const myBest = bestByUser.get(attempt.user_id) ?? attempt.score;
-      let higher = 0;
-      bestByUser.forEach((s) => { if (s > myBest) higher += 1; });
-      setRank(higher + 1);
-      setTotalParticipants(bestByUser.size);
+      const { data, error } = await supabase.rpc("get_quiz_rank", { _attempt_id: attempt.id });
+      if (cancelled || error || !data || data.length === 0) return;
+      const row = data[0];
+      setRank(row.rank);
+      setTotalParticipants(row.participants);
+      setPercentile(row.percentile);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on attempt?.id (not the whole `attempt` object) to avoid re-running the rank computation on unrelated attempt reference changes
-  }, [quizId, attempt?.id]);
+    return () => { cancelled = true; };
+  }, [attempt?.id, attempt?.submitted_at]);
 
   const formatTime = (seconds: number) => {
     if (!seconds) return "—";
@@ -432,17 +427,21 @@ const QuizResult = () => {
               )}
             </div>
 
-            {/* Rank/Percentile placeholders */}
+            {/* Rank / Percentile (live, among everyone who submitted) */}
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="bg-white/10 rounded-xl p-3 text-center">
                 <p className="text-xs text-primary-foreground/60 mb-1">Percentile</p>
-                <p className="text-xl font-bold text-primary-foreground">--</p>
-                <p className="text-[10px] text-primary-foreground/50 mt-0.5">Result Awaited</p>
+                <p className="text-xl font-bold text-primary-foreground">{percentile !== null ? percentile : "—"}</p>
+                <p className="text-[10px] text-primary-foreground/50 mt-0.5">
+                  {percentile !== null ? "Live" : "Calculating…"}
+                </p>
               </div>
               <div className="bg-white/10 rounded-xl p-3 text-center">
                 <p className="text-xs text-primary-foreground/60 mb-1">Rank</p>
-                <p className="text-xl font-bold text-primary-foreground">—</p>
-                <p className="text-[10px] text-primary-foreground/50 mt-0.5">Result Awaited</p>
+                <p className="text-xl font-bold text-primary-foreground">{rank !== null ? `#${rank}` : "—"}</p>
+                <p className="text-[10px] text-primary-foreground/50 mt-0.5">
+                  {rank !== null && totalParticipants !== null ? `of ${totalParticipants}` : "Calculating…"}
+                </p>
               </div>
             </div>
 
@@ -637,17 +636,6 @@ const QuizResult = () => {
                                 </div>
                               ))}
 
-                              {/* Percentile / Rank placeholders */}
-                              <div className="col-span-2 sm:col-span-3 grid grid-cols-2 gap-2 mt-1">
-                                <div className="bg-card border rounded-lg px-3 py-2 text-center">
-                                  <p className="text-[11px] text-muted-foreground">Percentile</p>
-                                  <p className="text-sm font-bold text-muted-foreground">Result Awaited</p>
-                                </div>
-                                <div className="bg-card border rounded-lg px-3 py-2 text-center">
-                                  <p className="text-[11px] text-muted-foreground">Rank</p>
-                                  <p className="text-sm font-bold text-muted-foreground">Result Awaited</p>
-                                </div>
-                              </div>
                             </div>
                           )}
                         </div>
@@ -901,7 +889,9 @@ const QuizResult = () => {
                     <div className="w-12 h-3 bg-muted rounded" />
                   </div>
                 ))}
-                <p className="text-xs text-muted-foreground text-center pt-2">Result Awaited…</p>
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  {rank !== null && totalParticipants !== null ? `Your rank right now: #${rank} of ${totalParticipants}` : "Full leaderboard coming soon"}
+                </p>
               </div>
             </div>
           )}
