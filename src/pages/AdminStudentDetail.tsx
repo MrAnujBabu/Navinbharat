@@ -4,6 +4,7 @@ import { supabase } from "../integrations/supabase/client";
 import Header from "../components/Layout/Header";
 import Sidebar from "../components/Layout/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
+import { canBlockAccount } from "../lib/accountBlock";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -53,7 +54,7 @@ type Snapshot = {
 
 const AdminStudentDetail = () => {
   const { userId } = useParams<{ userId: string }>();
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<Snapshot | null>(null);
@@ -105,7 +106,7 @@ const AdminStudentDetail = () => {
               <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading} className="gap-2">
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
               </Button>
-              {p && (
+              {p && canBlockAccount(userId, user?.id) && (
                 <Button variant={p.is_blocked ? "default" : "destructive"} size="sm" onClick={toggleBlock} className="gap-2 min-h-[44px]">
                   {p.is_blocked ? <><ShieldCheck className="h-4 w-4" /> Unblock</> : <><ShieldOff className="h-4 w-4" /> Block</>}
                 </Button>

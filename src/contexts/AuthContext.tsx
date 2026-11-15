@@ -4,6 +4,8 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { queryClient, SELF_PROFILE_KEY } from "../lib/queryClient";
 import { checkPasswordStrength } from "../lib/passwordStrength";
 import { leakedPasswordError } from "../lib/leakedPassword";
+import { blockedAccountMessage, shouldEnforceBlock } from "../lib/accountBlock";
+import { toast } from "sonner";
 
 export type AppRole = "admin" | "student" | "teacher";
 
@@ -67,7 +69,9 @@ function clearAllCachedRoles() {
   } catch { /* noop */ }
 }
 
-function makeDefaults(supabaseUser: SupabaseUser): { user: User; profile: UserProfile; role: AppRole } {
+type LoadedUser = { user: User; profile: UserProfile; role: AppRole; blockedMessage?: string | null };
+
+function makeDefaults(supabaseUser: SupabaseUser): LoadedUser {
   const email = supabaseUser.email ?? "";
   const metaName = supabaseUser.user_metadata?.full_name ?? null;
   const cached = readCachedRole(supabaseUser.id) ?? "student";
@@ -80,11 +84,11 @@ function makeDefaults(supabaseUser: SupabaseUser): { user: User; profile: UserPr
 
 async function fetchUserData(
   supabaseUser: SupabaseUser
-): Promise<{ user: User; profile: UserProfile; role: AppRole }> {
+): Promise<LoadedUser> {
   const defaults = makeDefaults(supabaseUser);
   try {
     const [profileResult, roleResult] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, avatar_url, mobile").eq("id", supabaseUser.id).single().then(r => r, e => ({ data: null, error: e })),
+      supabase.from("profiles").select("id, full_name, email, avatar_url, mobile, is_blocked, blocked_reason").eq("id", supabaseUser.id).single().then(r => r, e => ({ data: null, error: e })),
       supabase.rpc("get_user_role", { _user_id: supabaseUser.id }).then(r => r, e => ({ data: null, error: e })),
     ]);
 
@@ -128,6 +132,9 @@ async function fetchUserData(
       user: { id: supabaseUser.id, email, fullName, role },
       profile: { id: supabaseUser.id, email, fullName, avatarUrl: profileData?.avatar_url ?? null, mobile: profileData?.mobile ?? null },
       role,
+      blockedMessage: shouldEnforceBlock(profileData?.is_blocked, role)
+        ? blockedAccountMessage(profileData?.blocked_reason)
+        : null,
     };
   } catch (err) {
     // Route to Sentry instead of a silent console.warn — this branch swallows
@@ -150,7 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isMounted = useRef(true);
   const loadCounter = useRef(0);
 
-  const applyUser = useCallback((data: { user: User; profile: UserProfile; role: AppRole } | null) => {
+  const applyUser = useCallback((data: LoadedUser | null) => {
     if (!isMounted.current) return;
     if (data) {
       setUser(data.user);
@@ -168,6 +175,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Fire-and-forget — NEVER await inside onAuthStateChange
     fetchUserData(supabaseUser).then((data) => {
       if (isMounted.current && thisLoad === loadCounter.current) {
+        if (data.blockedMessage) {
+          // Admin blocked this account: end the session instead of letting
+          // the student keep using the app.
+          toast.error(data.blockedMessage, { id: "account-blocked", duration: 10000 });
+          applyUser(null);
+          setRoleLoaded(false);
+          void supabase.auth.signOut();
+          return;
+        }
         applyUser(data);
         setRoleLoaded(true);
       }
@@ -257,8 +273,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) return { error };
+      if (data?.user) {
+        const loaded = await fetchUserData(data.user);
+        if (loaded.blockedMessage) {
+          await supabase.auth.signOut();
+          return { error: new Error(loaded.blockedMessage) };
+        }
+      }
       return { error: null };
     } catch (error) {
       return { error: error as Error };

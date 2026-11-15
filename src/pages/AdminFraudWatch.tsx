@@ -4,6 +4,7 @@ import { supabase } from "../integrations/supabase/client";
 import Header from "../components/Layout/Header";
 import Sidebar from "../components/Layout/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
+import { canBlockAccount } from "../lib/accountBlock";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -48,7 +49,7 @@ const SEVERITY_STYLE: Record<Row["severity"], string> = {
 };
 
 const AdminFraudWatch = () => {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -182,7 +183,7 @@ const AdminFraudWatch = () => {
                       <Button size="sm" variant="destructive" className="gap-2 min-h-[44px] active:scale-[0.97] transition-transform duration-150" onClick={() => revoke(r)}>
                         <XCircle className="h-4 w-4" /> Revoke access
                       </Button>
-                      {!r.is_blocked && (
+                      {!r.is_blocked && canBlockAccount(r.user_id, user?.id) && (
                         <Button size="sm" variant="destructive" className="gap-2 min-h-[44px] active:scale-[0.97] transition-transform duration-150" onClick={() => block(r)}>
                           <ShieldOff className="h-4 w-4" /> Block user
                         </Button>

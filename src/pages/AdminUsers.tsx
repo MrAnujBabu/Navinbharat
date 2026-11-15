@@ -5,6 +5,7 @@ import { supabase } from "../integrations/supabase/client";
 import Header from "../components/Layout/Header";
 import Sidebar from "../components/Layout/Sidebar";
 import { useAuth } from "../contexts/AuthContext";
+import { canBlockAccount } from "../lib/accountBlock";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -30,7 +31,7 @@ type Row = {
 };
 
 const AdminUsers = () => {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -154,14 +155,18 @@ const AdminUsers = () => {
                             <p className="text-xs text-muted-foreground truncate">{r.email || r.mobile || r.id.slice(0, 8)}</p>
                             {r.created_at && <p className="text-[10px] text-muted-foreground">joined {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</p>}
                           </button>
-                          <Button
-                            variant={r.is_blocked ? "outline" : "destructive"}
-                            size="sm"
-                            onClick={() => { setTarget(r); setReason(r.blocked_reason ?? ""); }}
-                            className="gap-1 min-h-[44px]"
-                          >
-                            {r.is_blocked ? <><ShieldCheck className="h-4 w-4" /> Unblock</> : <><ShieldOff className="h-4 w-4" /> Block</>}
-                          </Button>
+                          {canBlockAccount(r.id, user?.id) ? (
+                            <Button
+                              variant={r.is_blocked ? "outline" : "destructive"}
+                              size="sm"
+                              onClick={() => { setTarget(r); setReason(r.blocked_reason ?? ""); }}
+                              className="gap-1 min-h-[44px]"
+                            >
+                              {r.is_blocked ? <><ShieldCheck className="h-4 w-4" /> Unblock</> : <><ShieldOff className="h-4 w-4" /> Block</>}
+                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] shrink-0">You</Badge>
+                          )}
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>
