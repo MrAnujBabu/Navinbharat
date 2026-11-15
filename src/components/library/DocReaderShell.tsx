@@ -71,6 +71,8 @@ export default function DocReaderShell({
   /** True when the OS/browser refused the orientation lock and we rotate in CSS. */
   const [pseudoLandscape, setPseudoLandscape] = useState(false);
   const [autoActive, setAutoActive] = useState(false);
+  /** Rotate + Save FABs: shown on tap, hidden after 3s idle or while autoscroll runs. */
+  const [fabsVisible, setFabsVisible] = useState(true);
   /** Host node for the header-docked autoscroll control (full-page library reader). */
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   /** In-reader text search (canvas reader only). */
@@ -264,9 +266,10 @@ export default function DocReaderShell({
   const scheduleHide = () => {
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
+      setFabsVisible(false);
       if (searchOpenRef.current || notesOpenRef.current) return;
       setHeaderVisible(false);
-    }, 2500);
+    }, 3000);
   };
 
   // Keep the toolbar pinned for as long as the search bar is open.
@@ -548,9 +551,15 @@ export default function DocReaderShell({
     // My Library full-page: tap toggles the floating toolbar + FABs back on —
     // without this the header hid after 2.5s idle and could never return.
     // Non-library fullscreen surfaces keep the old "no stray bar" behaviour.
-    if (fullPage && !libraryLocalMode) return;
+    if (fullPage && !libraryLocalMode) {
+      // No header here, but the Rotate/Save FABs still follow the 3s rule.
+      setFabsVisible(true);
+      scheduleHide();
+      return;
+    }
     setHeaderVisible((v) => {
       const next = !v;
+      setFabsVisible(next);
       if (next) scheduleHide();
       return next;
     });
@@ -984,31 +993,23 @@ export default function DocReaderShell({
           aria-pressed={landscape}
           title="Rotate to landscape"
           style={{ bottom: hideDownload ? "calc(env(safe-area-inset-bottom, 0px) + 20px)" : "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
-          className={`fixed left-4 z-40 p-2 text-foreground transition-all duration-300 active:scale-95 ${
-            libraryLocalMode && fullPage
-              ? // Same idle hide as autoscroll: tap the page to bring it back.
-                headerVisible
-                ? "opacity-100"
-                : "pointer-events-none opacity-0"
-              : fullPage || headerVisible
-                ? "opacity-100"
-                : "pointer-events-none opacity-0"
+          className={`fixed left-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/85 text-foreground shadow-lg backdrop-blur transition-all duration-300 active:scale-95 ${
+            // 3s idle rule + hide while autoscroll runs; tap the page to bring it back.
+            (headerVisible || fabsVisible) && !autoActive
+              ? "opacity-100"
+              : "pointer-events-none opacity-0"
           }`}
         >
-          <RotatePhoneIcon className={`h-7 w-7 transition-transform drop-shadow-md ${landscape ? "rotate-90" : ""}`} />
+          <RotatePhoneIcon className={`h-5 w-5 transition-transform ${landscape ? "rotate-90" : ""}`} />
         </button>
 
 
         <div
           className={`transition-opacity duration-300 ${
-            libraryLocalMode && fullPage
-              ? // Same idle hide as autoscroll: tap the page to bring it back.
-                headerVisible
-                ? "opacity-100"
-                : "pointer-events-none opacity-0"
-              : (fullPage || headerVisible) && !readingMode
-                ? "opacity-100"
-                : "pointer-events-none opacity-0"
+            // 3s idle rule + hide while autoscroll runs; tap the page to bring it back.
+            (headerVisible || fabsVisible) && !autoActive && !readingMode
+              ? "opacity-100"
+              : "pointer-events-none opacity-0"
           }`}
         >
           {!hideDownload && (
