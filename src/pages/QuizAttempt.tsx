@@ -185,7 +185,7 @@ const QuizAttempt = () => {
   if (loading) return <RouteSkeleton label="Loading quiz" />;
   if (!quiz || questions.length === 0) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-background">
+      <div className="min-h-dvh flex items-center justify-center bg-background px-6">
         <div className="text-center space-y-3">
           <AlertTriangle className="h-12 w-12 mx-auto text-destructive" />
           {joinCourseId ? (
