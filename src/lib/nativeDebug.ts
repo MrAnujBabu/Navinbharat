@@ -238,7 +238,10 @@ export function initNativeDebug(): void {
       try { e.preventDefault(); e.stopImmediatePropagation(); } catch { /* noop */ }
       return;
     }
-    logger.error("[window.error]", e.message, { filename: e.filename, lineno: e.lineno });
+    // Pass the real Error (not `e.message`, which the browser prefixes with
+    // "Uncaught ") so this report matches the one Sentry's own global handler
+    // sends and the dedupe drops it — one crash, one Sentry issue.
+    logger.error("[window.error]", err ?? e.message, { filename: e.filename, lineno: e.lineno });
   }, true);
   window.addEventListener("unhandledrejection", (e) => {
     if (isExpectedCapacitorNoise(e.reason) || isRoutineAbortNoise([e.reason])) {

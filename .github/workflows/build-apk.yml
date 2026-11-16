@@ -77,8 +77,15 @@ jobs:
           bun run guard:all
           bun run check:lockfile
 
+      # VITE_SENTRY_DSN is baked into the bundle at build time; without it
+      # src/lib/sentry.ts stays a no-op and the APK reports nothing to Sentry.
       - name: Build web assets
-        run: bun run build
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+        run: |
+          set -e
+          test -n "$VITE_SENTRY_DSN" || echo "::warning::VITE_SENTRY_DSN secret is empty — this APK will not report errors to Sentry"
+          bun run build
 
       - name: Setup JDK 21
         uses: actions/setup-java@v5
@@ -266,13 +273,21 @@ jobs:
           retention-days: 1  # repository maximum
           if-no-files-found: error
 
+      # Step-level env is not visible to the same step's `if:`, so the old
+      # `if: env.SENTRY_DSN != ''` was always false and this never ran.
+      # The DSN check now lives in the script body. Uses the same DSN the
+      # bundle ships with, so a broken DSN fails the release loudly.
       - name: Sentry release smoke test
-        if: ${{ env.SENTRY_DSN != '' }}
         env:
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_ENVIRONMENT: release
-        run: bunx tsx scripts/sentry-smoke.ts
+        run: |
+          if [ -z "$SENTRY_DSN" ]; then
+            echo "::warning::VITE_SENTRY_DSN secret is empty — skipping Sentry smoke test"
+            exit 0
+          fi
+          bunx tsx scripts/sentry-smoke.ts
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
