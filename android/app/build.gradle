@@ -28,16 +28,16 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        // Ship only the ABIs that real devices and the CI emulator need.
-        // 32-bit x86 has no device or emulator target left (the CI emulator is
-        // x86_64) and cost ~4.7 MB of native libs in every APK.
+        // Ship only phone ABIs. x86/x86_64 exist only on emulators (no CI job
+        // runs the APK on one) and x86_64 alone cost ~5.7 MB in every APK.
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+            abiFilters "armeabi-v7a", "arm64-v8a"
         }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.map:!compressed.tracemonkey-pldi-09.pdf'
+             // *.map + the pdf.js demo PDF: plugin-bundled debug files (~2.9 MB packed), never loaded.
         }
     }
     // Stable debug signing key committed at android/keystore/debug.keystore.
