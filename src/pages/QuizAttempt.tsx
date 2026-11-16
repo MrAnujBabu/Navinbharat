@@ -43,6 +43,7 @@ interface Quiz {
   duration_minutes: number;
   total_marks: number;
   pass_percentage: number;
+  course_id?: number | null;
 }
 
 const QuizAttempt = () => {
@@ -53,6 +54,8 @@ const QuizAttempt = () => {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  // Batch the student must join before the questions unlock (null = no block).
+  const [joinCourseId, setJoinCourseId] = useState<number | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
@@ -97,6 +100,22 @@ const QuizAttempt = () => {
           options: Array.isArray(q.options) ? (q.options as string[]) : (q.options ? Object.values(q.options as Record<string, unknown>) as string[] : null),
         }));
         setQuestions(qs);
+
+        // get_quiz_questions returns nothing to students who haven't joined the
+        // quiz's batch. Tell them that instead of "Quiz not found".
+        const courseId = (quizRes.data as Quiz).course_id ?? null;
+        if (qs.length === 0 && courseId && user) {
+          const { data: enr } = await supabase
+            .from("enrollments")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("course_id", courseId)
+            .eq("status", "active")
+            .maybeSingle();
+          setJoinCourseId(enr ? null : courseId);
+        } else {
+          setJoinCourseId(null);
+        }
 
         // Attempt record is created only on submit to avoid orphan rows
       } catch (err: unknown) {
@@ -169,8 +188,20 @@ const QuizAttempt = () => {
       <div className="min-h-dvh flex items-center justify-center bg-background">
         <div className="text-center space-y-3">
           <AlertTriangle className="h-12 w-12 mx-auto text-destructive" />
-          <p className="text-muted-foreground">Quiz not found or has no questions.</p>
-          <Button onClick={() => navigate(-1)}>Go Back</Button>
+          {joinCourseId ? (
+            <>
+              <p className="text-muted-foreground">Ye test batch ke students ke liye hai. Pehle batch join karein.</p>
+              <div className="flex justify-center gap-2">
+                <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+                <Button onClick={() => navigate(`/buy-course?id=${joinCourseId}`)}>Join Batch</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-muted-foreground">Quiz not found or has no questions.</p>
+              <Button onClick={() => navigate(-1)}>Go Back</Button>
+            </>
+          )}
         </div>
       </div>
     );

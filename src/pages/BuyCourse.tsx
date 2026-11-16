@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { BackButton } from "../components/ui/BackButton";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../contexts/AuthContext";
@@ -69,7 +69,10 @@ const SUCCESS_SOUND_URL = successSound.url;
 
 const BuyCourse = () => {
   const [searchParams] = useSearchParams();
-  const courseId = searchParams.get("id");
+  // Both /buy-course?id=34 and the /buy-course/34 route open the same course;
+  // reading only ?id made the path form always show "Course not found".
+  const { id: pathCourseId } = useParams<{ id?: string }>();
+  const courseId = searchParams.get("id") ?? pathCourseId ?? null;
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();

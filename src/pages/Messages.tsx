@@ -192,6 +192,10 @@ const Messages = () => {
         .eq("recipient_id", userId)
         .eq("is_read", false);
 
+      // Clear this contact's unread badge right away; the list is not refetched here.
+      if (aliveRef.current) {
+        setContacts((prev) => prev.map((c) => (c.id === contactId && c.unreadCount ? { ...c, unreadCount: 0 } : c)));
+      }
     } catch (err: unknown) {
       if (aliveRef.current) logger.error("Error fetching messages", err);
     } finally {
@@ -253,22 +257,25 @@ const Messages = () => {
   useEffect(() => {
     if (!userId || !selectedContact) return;
 
+    // Unique name per mount: reusing an already-subscribed channel name throws.
     const channel = supabase
-      .channel(`chat-${userId}-${selectedContact.id}`)
+      .channel(`chat-${userId}-${selectedContact.id}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "messages",
         filter: `recipient_id=eq.${userId}`,
-      }, () => {
-        fetchMessages(selectedContact.id);
+      }, (payload) => {
+        const senderId = (payload.new as { sender_id?: string } | null)?.sender_id;
+        if (senderId === selectedContact.id) fetchMessages(selectedContact.id);
+        else fetchContacts();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, selectedContact, fetchMessages]);
+  }, [userId, selectedContact, fetchMessages, fetchContacts]);
 
   // Auto-scroll to bottom
   useEffect(() => {
