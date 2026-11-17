@@ -271,7 +271,7 @@ export default function AutoScrollSheet({
                           <span
                             key={n}
                             className={`h-1.5 flex-1 rounded-full ${
-                              state === "done" ? "bg-primary" : state === "now" ? "bg-primary/50" : "bg-muted"
+                              state === "done" ? "bg-primary" : state === "now" ? "bg-primary/50" : "bg-foreground/15"
                             }`}
                           />
                         );
