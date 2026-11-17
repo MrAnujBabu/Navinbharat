@@ -1059,7 +1059,7 @@ export default function DocReaderShell({
 
       {/* Notes — right panel on desktop, bottom sheet on mobile */}
       {itemId && notesOpen && !isMobile && (
-        <aside className="flex w-[320px] shrink-0 flex-col border-l">
+        <aside className="relative z-50 flex w-[320px] shrink-0 flex-col border-l">
           <NotesPanel itemId={itemId} title={title} onOpenLink={onOpenLink} keyboardInset={keyboardInset} />
         </aside>
       )}
