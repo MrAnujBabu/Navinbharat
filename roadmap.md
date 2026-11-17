@@ -6,3 +6,4 @@
 - [x] Add strict APK install validation and publish a fresh replacement release
 - [x] Fix My Library fullscreen chrome, white strip, and floating reader controls
 - [x] Remove the My Library PDF first-paint header/status-bar race permanently
+- [x] Keep local PDFs full-page with a black floor and clear stale left-edge clipping at fit-width

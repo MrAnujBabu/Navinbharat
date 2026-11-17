@@ -298,24 +298,10 @@ export default function DocReaderShell({
   useEffect(() => () => { if (landscapeRef.current) unlockOrientation().catch(() => {}); }, []);
 
 
-  /** Installed app (PWA standalone / iOS home-screen / Capacitor native).
-      There the PDF must fill the whole screen the moment it opens. */
-  const installedApp = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    const nav = window.navigator as Navigator & { standalone?: boolean };
-    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-    return (
-      window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
-      window.matchMedia?.("(display-mode: fullscreen)")?.matches === true ||
-      nav.standalone === true ||
-      cap?.isNativePlatform?.() === true
-    );
-  }, []);
-
-  /** Full-page reading: fullscreen button, landscape in the compact My Library
-      shell, or any read inside the installed app. All drop the title bar. */
-  const forcedFullPage = libraryLocalMode && (landscapeActive || installedApp);
-  const fullPage = isFullscreen || forcedFullPage;
+  /** Local My Library PDFs always open edge-to-edge. The floating toolbar
+      keeps every command reachable without bringing back the title strip or
+      reserving a status-bar gutter; no platform detection can reintroduce it. */
+  const fullPage = libraryLocalMode || isFullscreen;
 
 
   useEffect(() => {
@@ -646,7 +632,7 @@ export default function DocReaderShell({
   return (
     <div
       ref={shellRef}
-      className={`${libraryLocalMode ? (fullPage ? "nb-library-reader-stage bg-muted" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
+      className={`${libraryLocalMode ? (fullPage ? "nb-library-reader-stage" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
       data-testid="doc-reader-shell"
       data-library-local={libraryLocalMode ? "true" : undefined}
     >
@@ -855,7 +841,7 @@ export default function DocReaderShell({
                 {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
               </Button>
             )}
-            {!forcedFullPage && (
+            {!libraryLocalMode && (
               <Button variant="ghost" size="icon" onClick={() => void toggleFullscreen()} aria-label="Exit fullscreen" className="h-10 w-10">
                 <Minimize2 className="h-5 w-5" />
               </Button>
@@ -894,7 +880,7 @@ export default function DocReaderShell({
             bar) — the previous safe-area-inset-top offset left a visible
             ~24–48 px white strip above the PDF on notched devices. */}
         <div
-          className={`${libraryLocalMode ? (fullPage ? "absolute inset-0 min-h-0 bg-muted" : "relative min-h-0 flex-1 bg-muted") : "nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"}`}
+          className={`${libraryLocalMode ? (fullPage ? "absolute inset-0 min-h-0" : "relative min-h-0 flex-1 bg-muted") : "nb-reader-surface absolute inset-x-0 bottom-0 transition-[top] duration-300"}`}
           style={{
             // In landscape the page stays full-bleed at top:0 — the floating
             // header carries its own safe-area padding, and the offset used to

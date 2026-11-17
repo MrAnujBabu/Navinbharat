@@ -647,6 +647,10 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       const visualWidth = window.visualViewport?.width ?? window.innerWidth;
       const visualHeight = window.visualViewport?.height ?? window.innerHeight;
       setPageWidth(computeFitPageWidth(visualWidth, el?.clientWidth ?? 0, visualHeight));
+      // At 100% the document is exactly as wide as its scroll surface. Clear
+      // any offset left by pinch-zoom/rotation or the first letters on the
+      // left stay clipped even though the zoom pill reads 100%.
+      if (el && zoomRef.current <= MIN_ZOOM) el.scrollLeft = 0;
     }, []);
 
     useEffect(() => { onZoomChange?.(zoom); }, [zoom, onZoomChange]);
@@ -673,11 +677,19 @@ const FastPdfReader = forwardRef<FastPdfReaderHandle, Props>(
       getZoom: () => zoomRef.current,
       zoomBy: (factor: number) => zoomAroundCentre(zoomRef.current * factor),
       fitWidth: () => {
+        // Cancel any pending pinch anchor before returning to fit-width. Its
+        // queued animation frame could otherwise restore the old zoomed
+        // scrollLeft after this reset and clip the left edge at 100%.
+        focalRef.current = null;
+        if (scrollRef.current) scrollRef.current.scrollLeft = 0;
         measureFitWidth();
         // Always normalise persisted manual zoom on an explicit fit command;
         // zoomAroundCentre intentionally no-ops at 1 and therefore cannot be
         // responsible for the final post-rotation width measurement.
         commitZoom(1);
+        requestAnimationFrame(() => {
+          if (scrollRef.current && zoomRef.current <= MIN_ZOOM) scrollRef.current.scrollLeft = 0;
+        });
       },
       getNumPages: () => numPagesRef.current,
       goToPage: (page: number) => {

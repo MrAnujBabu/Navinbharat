@@ -266,18 +266,17 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
     background: #000 !important;
     overscroll-behavior: none;
   }
-  /* My Library fullscreen uses the normal document palette rather than the
-     global black reader floor. It still paints every WebView pixel while the
-     native bars are transitioning, preventing a white flash/strip without a
-     black screen. */
+  /* My Library fullscreen owns every WebView pixel. Use the same black floor
+     as the immersive Android bars and the video player: the previous muted
+     (near-white) floor was itself the white strip around dark PDF pages. */
   body.nb-library-reader-fullpage {
     padding: 0 !important;
     margin: 0 !important;
-    background: hsl(var(--muted)) !important;
+    background: #000 !important;
     overscroll-behavior: none;
   }
   html:has(body.nb-library-reader-fullpage) {
-    background: hsl(var(--muted)) !important;
+    background: #000 !important;
   }
   /* Local-library full page owns the complete visual viewport. Do not reserve
      stale Android status/navigation-bar measurements here: those synthetic
@@ -288,23 +287,21 @@ body[data-lovable-dialog-open="true"] [data-floating-fab="true"] {
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
-    background-color: hsl(var(--muted));
+    background-color: #000;
   }
-  /* Every transient PDF layer uses the same reader colour. This includes the
-     canvas scroll floor and loading/error placeholders, so Android can never
-     expose a white or black seam while the viewport settles. */
+  /* Every transient PDF layer uses the black reader floor, including loading
+     and error placeholders. The PDF bitmap itself is untouched, so ordinary
+     white documents still render white while gaps never flash a white band. */
   .nb-library-reader-stage .nb-pdf-surface,
   .nb-library-reader-stage .bg-card,
-  .nb-library-reader-stage .bg-background {
-    background-color: hsl(var(--muted)) !important;
+  .nb-library-reader-stage .bg-background,
+  .nb-library-reader-stage .bg-neutral-100 {
+    background-color: #000 !important;
   }
-  /* react-pdf paints its own white placeholders behind pages; inside the
-     library reader any gap (e.g. while landscape relayout settles) must show
-     the reader colour, never a white strip. */
   .nb-library-reader-stage .react-pdf__Document,
   .nb-library-reader-stage .react-pdf__Page,
   .nb-library-reader-stage .react-pdf__Page__canvas {
-    background-color: hsl(var(--muted)) !important;
+    background-color: #000 !important;
   }
   /* The root element paints the band behind the status bar / notch in the
      browser — leave it white and a strip bleeds through above the reader. */

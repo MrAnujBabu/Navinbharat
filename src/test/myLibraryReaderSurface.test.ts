@@ -19,9 +19,12 @@ describe("My Library compact local PDF surface", () => {
     expect(shell).not.toContain('{(!libraryLocalMode || fullPage) && (');
   });
 
-  it("uses normal flex layout and a themed surface instead of the black reader surface", () => {
-    expect(shell).toContain('fullPage ? "nb-library-reader-stage bg-muted" : "bg-background"');
-    expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0 bg-muted" : "relative min-h-0 flex-1 bg-muted"');
+  it("uses a black full-page floor so no white strip surrounds dark pages", () => {
+    expect(shell).toContain('fullPage ? "nb-library-reader-stage" : "bg-background"');
+    expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0" : "relative min-h-0 flex-1 bg-muted"');
+    expect(css).toContain("body.nb-library-reader-fullpage");
+    expect(css).toContain(".nb-library-reader-stage .bg-neutral-100");
+    expect(css).not.toContain("background-color: hsl(var(--muted)) !important");
   });
 
   it("uses one immersive owner for local full-page instead of racing the StatusBar plugin", () => {
@@ -60,27 +63,31 @@ describe("My Library compact local PDF surface", () => {
   });
 
   it("makes the local full-page PDF stage cover the full shell", () => {
-    expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0 bg-muted"');
-    expect(shell).toContain("nb-library-reader-stage bg-muted");
+    expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0"');
+    expect(shell).toContain('fullPage ? "nb-library-reader-stage"');
   });
 
-  it("uses a non-black full-page floor while native bars transition", () => {
+  it("opens every local PDF full-page without a title-bar detection race", () => {
+    expect(shell).toContain("const fullPage = libraryLocalMode || isFullscreen");
+    expect(shell).not.toContain("const installedApp");
+    expect(shell).not.toContain("forcedFullPage");
     expect(shell).toContain('document.body.classList.add("nb-library-reader-fullpage")');
     expect(shell).toContain('document.body.classList.remove("nb-library-reader-fullpage")');
   });
 
-  it("re-applies fit-width after local fullscreen and rotation settle", () => {
+  it("re-applies fit-width and clears stale horizontal clipping after rotation", () => {
     expect(shell).toContain("if (libraryLocalMode) viewerRef.current?.fitWidth()");
     expect(shell).toContain("[fullPage, landscapeActive, libraryLocalMode, url]");
     expect(shell).not.toContain("const final = window.setTimeout(settle, 520)");
     expect(pdf).toContain("const measureFitWidth = useCallback");
-    expect(pdf).toContain("measureFitWidth();");
+    expect(pdf).toContain("if (el && zoomRef.current <= MIN_ZOOM) el.scrollLeft = 0");
+    expect(pdf).toContain("focalRef.current = null");
     expect(pdf).toContain("commitZoom(1);");
   });
 
-  it("paints every PDF transient layer with the same themed surface", () => {
+  it("paints every PDF transient layer with the same black surface", () => {
     expect(pdf.match(/nb-pdf-surface/g)?.length).toBeGreaterThanOrEqual(4);
     expect(css).toContain(".nb-library-reader-stage .nb-pdf-surface");
-    expect(css).toContain("background-color: hsl(var(--muted)) !important");
+    expect(css).toContain("background-color: #000 !important");
   });
 });
