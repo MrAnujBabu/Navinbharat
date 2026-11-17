@@ -632,7 +632,7 @@ export default function DocReaderShell({
   return (
     <div
       ref={shellRef}
-      className={`${libraryLocalMode ? (fullPage ? "nb-library-reader-stage" : "bg-background") : "nb-reader-surface"} fixed inset-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
+      className={`${libraryLocalMode ? (fullPage ? "nb-library-reader-stage" : "bg-background") : "nb-reader-surface"} fixed inset-0 !m-0 z-[60] flex motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150`}
       data-testid="doc-reader-shell"
       data-library-local={libraryLocalMode ? "true" : undefined}
     >

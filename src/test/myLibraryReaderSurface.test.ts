@@ -62,9 +62,12 @@ describe("My Library compact local PDF surface", () => {
     expect(shell).toContain("{(!libraryLocalMode || !fullPage) && <header");
   });
 
-  it("makes the local full-page PDF stage cover the full shell", () => {
+  it("makes the local full-page PDF stage cover the full shell without parent spacing", () => {
     expect(shell).toContain('fullPage ? "absolute inset-0 min-h-0"');
     expect(shell).toContain('fullPage ? "nb-library-reader-stage"');
+    // My Library's space-y-4 otherwise gives the fixed reader margin-top:16px,
+    // recreating the white strip above it in the real import/open flow.
+    expect(shell).toContain("fixed inset-0 !m-0");
   });
 
   it("opens every local PDF full-page without a title-bar detection race", () => {
