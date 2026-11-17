@@ -187,7 +187,17 @@ export default function AddFromLinkDialog({
         else onOpenChange(true);
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        // Phones: pin the card to the top instead of the centre. With the
+        // native keyboard resize, a centred card jumped up while the WebView
+        // shrank and Android left a stale copy of its buttons painted below.
+        className="top-[calc(env(safe-area-inset-top)+0.75rem)] max-h-[calc(100dvh-env(safe-area-inset-top)-1.5rem)] translate-y-0 overflow-y-auto sm:top-[50%] sm:max-h-none sm:max-w-md sm:translate-y-[-50%]"
+        // In the app the keyboard opens only when the student taps the field,
+        // not in the middle of the opening animation.
+        onOpenAutoFocus={(e) => {
+          if (isNative()) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Link2 className="h-4 w-4" /> Add from link
@@ -200,7 +210,7 @@ export default function AddFromLinkDialog({
 
         <div className="space-y-3">
           <Input aria-label="Document link"
-            autoFocus
+            autoFocus={!isNative()}
             inputMode="url"
             className="text-base"
             placeholder="https://drive.google.com/file/d/…"

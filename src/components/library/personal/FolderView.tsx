@@ -270,13 +270,11 @@ export default function FolderView({ folder, allFolders, onRefreshOuter, sort = 
       return;
     }
     const isPdf = fileTypeFor(file_name, item?.mime_type) === "PDF";
-    // The resolved URI is authoritative. Older "Save offline" rows can retain
-    // their original https URL in metadata even though getItemUri now returns
-    // device/IndexedDB bytes; checking metadata alone sent those PDFs through
-    // the non-local shell and left the app/status toolbar visible in landscape.
-    const hasLocalBytes = !/^https?:\/\//i.test(url)
-      || (!!item && !/^https?:\/\//i.test(item.local_path));
-    setOpen({ id, title, url, filename: file_name, localLibraryPdf: isPdf && hasLocalBytes });
+    // Every My Library PDF uses the same full-page surface. "Save to folder"
+    // link rows (https URL, no local bytes) used to fall back to the shared
+    // reader, which cut landscape pages at the side; "Save offline" rows were
+    // already local and are unchanged.
+    setOpen({ id, title, url, filename: file_name, localLibraryPdf: isPdf });
   };
 
   if (open) {

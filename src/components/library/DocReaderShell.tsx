@@ -174,7 +174,21 @@ export default function DocReaderShell({
   // navigating the enclosing route (Library/Downloads/etc.).
   useEffect(() => {
     try { window.history.pushState({ pdfFullscreen: true }, ""); } catch {}
-    const onPop = () => { try { onBack(); } catch {} };
+    const onPop = (e: PopStateEvent) => {
+      // Back in reading mode only turns reading mode off. This listener is
+      // registered before every parent overlay listener (child effects run
+      // first), so stopping here keeps the document open; the popped history
+      // entry is restored so the next Back closes the reader as usual.
+      if (readingModeRef.current) {
+        e.stopImmediatePropagation();
+        try { window.history.pushState(readingTopStateRef.current, ""); } catch {}
+        readingModeRef.current = false;
+        setReadingMode(false);
+        setHeaderVisible(true);
+        return;
+      }
+      try { onBack(); } catch {}
+    };
     window.addEventListener("popstate", onPop);
     return () => {
       window.removeEventListener("popstate", onPop);
@@ -273,6 +287,10 @@ export default function DocReaderShell({
   /** Search must never auto-hide under the user's thumb mid-query. */
   const searchOpenRef = useRef(false);
   useEffect(() => { searchOpenRef.current = searchOpen; }, [searchOpen]);
+  const readingModeRef = useRef(false);
+  /** History entry on top when reading mode started — restored after Back. */
+  const readingTopStateRef = useRef<unknown>(null);
+  useEffect(() => { readingModeRef.current = readingMode; }, [readingMode]);
   const scheduleHide = () => {
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
@@ -576,6 +594,7 @@ export default function DocReaderShell({
     setReadingMode((v) => {
       const next = !v;
       if (next) {
+        readingTopStateRef.current = window.history.state;
         setHeaderVisible(false);
         if (idleTimer.current) window.clearTimeout(idleTimer.current);
       } else {
@@ -800,7 +819,10 @@ export default function DocReaderShell({
           <div
             data-testid="reader-fullpage-toolbar"
             className={`fixed left-2 right-2 top-2 z-[76] flex items-center gap-1 rounded-md border bg-card/95 p-1 shadow-md backdrop-blur transition-opacity duration-200 ${
-              headerVisible && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"
+              // Reading mode hides the toolbar at first, but a tap on the page
+              // must bring it back so the pressed Reading-mode button can turn
+              // it off again (it used to stay invisible until phone Back).
+              headerVisible ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             aria-hidden={!headerVisible}
             onClick={(event) => event.stopPropagation()}

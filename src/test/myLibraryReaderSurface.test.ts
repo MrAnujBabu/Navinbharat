@@ -7,10 +7,9 @@ const pdf = readFileSync("src/components/video/FastPdfReader.tsx", "utf8");
 const css = readFileSync("src/index.css", "utf8");
 
 describe("My Library compact local PDF surface", () => {
-  it("routes only locally-backed PDF records into local mode", () => {
-    expect(folder).toContain("!/^https?:\\/\\//i.test(url)");
-    expect(folder).toContain("!/^https?:\\/\\//i.test(item.local_path)");
-    expect(folder).toContain("localLibraryPdf: isPdf && hasLocalBytes");
+  it("routes every My Library PDF, including Save to folder links, into the full-page mode", () => {
+    expect(folder).toContain("localLibraryPdf: isPdf })");
+    expect(folder).not.toContain("localLibraryPdf: isPdf && hasLocalBytes");
   });
 
   it("does not reserve synthetic safe-area strips in local full-page mode", () => {
@@ -45,7 +44,7 @@ describe("My Library compact local PDF surface", () => {
     expect(shell).toContain('aria-label={landscape ? "Exit landscape" : "Rotate to landscape"}');
     expect(shell).not.toContain('libraryLocalMode && fullPage\n              ? "hidden"');
     // The header itself auto-hides with the reader chrome.
-    expect(shell).toContain('headerVisible && !readingMode ? "opacity-100" : "pointer-events-none opacity-0"');
+    expect(shell).toContain('headerVisible ? "opacity-100" : "pointer-events-none opacity-0"');
   });
 
   it("uses compact overlay commands instead of restoring the title strip", () => {
@@ -96,5 +95,18 @@ describe("My Library compact local PDF surface", () => {
 
   it("does not re-enter immersive mode for keyboard-only Notes resizes", () => {
     expect(shell.match(/if \(notesOpenRef\.current && !widthChanged\) return;/g)).toHaveLength(2);
+  });
+
+  it("lets reading mode be turned off on screen and with phone Back", () => {
+    // A tap shows the toolbar even in reading mode, so its toggle is reachable.
+    const start = shell.indexOf('data-testid="reader-fullpage-toolbar"');
+    const toolbar = shell.slice(start, shell.indexOf('aria-label="Toggle notes"', start));
+    expect(toolbar).toContain('headerVisible ? "opacity-100"');
+    expect(toolbar).not.toContain("!readingMode");
+    // Phone Back in reading mode turns it off and keeps the document open.
+    expect(shell).toContain("if (readingModeRef.current) {");
+    expect(shell).toContain("e.stopImmediatePropagation();");
+    expect(shell).toContain("window.history.pushState(readingTopStateRef.current, \"\")");
+    expect(shell).toContain("readingTopStateRef.current = window.history.state;");
   });
 });
