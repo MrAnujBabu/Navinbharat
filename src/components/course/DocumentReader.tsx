@@ -21,6 +21,7 @@ import { acquireReaderImmersive } from "../../lib/androidImmersive";
 import { pdfLifecycleMatches, type PdfLifecycleDetail } from "../../lib/pdfLifecycle";
 import { useReaderFullscreen } from "../../hooks/useReaderFullscreen";
 import { useIsMountedRef } from "../../lib/safety";
+import { isNative } from "@/lib/platform";
 
 
 
@@ -85,6 +86,21 @@ const DocumentReader = memo(
     const readerIdRef = useRef(`document-reader:${lessonId || url}:${Date.now()}:${Math.random().toString(36).slice(2)}`);
     const readerId = readerIdRef.current;
     const { isFullscreen, toggleFullscreen } = useReaderFullscreen(rootRef);
+    // On the APK the toggle can only hide app chrome (the document is already
+    // edge-to-edge), so without a confirmation the tap looked like a dead
+    // button. Web gets the real Fullscreen API and needs no message.
+    const fullscreenSeenRef = useRef(false);
+    useEffect(() => {
+      if (!isNative()) return;
+      if (!fullscreenSeenRef.current) {
+        fullscreenSeenRef.current = true;
+        return;
+      }
+      toast(isFullscreen ? "Full page on — tap the page to bring the toolbar back." : "Full page off.", {
+        id: "doc-fullscreen",
+        duration: 1600,
+      });
+    }, [isFullscreen]);
     const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,8 +137,19 @@ const DocumentReader = memo(
       }
     }, []);
 
+    // The document is still behind the loading overlay (the "Opening … 22%"
+    // state students screenshot). Starting the countdown at mount slid the
+    // toolbar away while the file was still loading, so the bookmark /
+    // download / fullscreen icons became unreachable before the page painted.
+    // The countdown is now armed only once the document is actually on screen.
+    const loadingRef = useRef(true);
+    useEffect(() => {
+      loadingRef.current = showSkeleton;
+    }, [showSkeleton]);
+
     const scheduleHide = useCallback(() => {
       clearHide();
+      if (loadingRef.current) return;
       const ms = isFullscreen ? 1500 : HIDE_AFTER_MS;
       hideTimerRef.current = setTimeout(() => setChromeVisible(false), ms);
     }, [clearHide, isFullscreen]);
@@ -141,6 +168,12 @@ const DocumentReader = memo(
       scheduleHide();
       return clearHide;
     }, [scheduleHide, clearHide]);
+
+    // Document finished painting → arm the auto-hide countdown from this point.
+    useEffect(() => {
+      if (showSkeleton) return;
+      scheduleHide();
+    }, [showSkeleton, scheduleHide]);
 
     // Android / browser hardware-back support for the DocumentReader.
     // Push a `pdfFullscreen` sentinel onto history so `useAndroidBackButton`
@@ -750,8 +783,13 @@ const DocumentReader = memo(
             type="button"
             aria-label="Show reader controls"
             onClick={showChrome}
-            className="absolute top-0 left-0 right-0 h-1.5 z-40 bg-transparent safe-area-top focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:bg-primary/20"
-          />
+            className="absolute top-0 left-0 right-0 h-9 z-40 bg-transparent safe-area-top flex items-start justify-center pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {/* Visible grabber. The old strip was 6px and invisible, sitting
+                under the Android status bar, so students could not find the
+                way back to the toolbar icons. */}
+            <span className="block h-1.5 w-12 rounded-full bg-foreground/35" />
+          </button>
         )}
 
         {/* Persistent floating exit arrow — ALWAYS visible, even when the
