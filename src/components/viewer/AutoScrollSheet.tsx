@@ -10,6 +10,7 @@ import {
 } from "../../hooks/useAutoScroll";
 import { DWELL_SLIDER_STEPS, dwellStepIndex } from "../../lib/reader/dwellEngine";
 import type { DeckStats } from "../../lib/reader/fsrsScheduler";
+import { LOOP_ROUND_PRESETS, formatRounds, type LoopSettings } from "../../lib/reader/loopRounds";
 
 
 /** Ceiling shared by the slider and `setSpeed`'s clamp in `useAutoScroll`. */
@@ -46,6 +47,11 @@ interface Props {
   dwell: DwellSettings;
   setDwell: (patch: Partial<DwellSettings>) => void;
   scrollToTop: () => void;
+  /** Revision loop: down + back up = one round (Route: one pass = one round). */
+  loop: LoopSettings;
+  setLoop: (patch: Partial<LoopSettings>) => void;
+  /** Round currently running (0 when autoscroll is off). */
+  loopRound: number;
   /** Raw text is owned by the FAB so half-typed input survives sheet re-renders. */
   customText: string;
   setCustomText: (v: string) => void;
@@ -88,6 +94,9 @@ export default function AutoScrollSheet({
   dwell,
   setDwell,
   scrollToTop,
+  loop,
+  setLoop,
+  loopRound,
   customText,
   setCustomText,
   routeText,
@@ -107,6 +116,15 @@ export default function AutoScrollSheet({
 
 }: Props): JSX.Element {
   const routeStops = dwell?.route ?? [];
+  const routeLike =
+    dwell.enabled && (dwell.parity === "route" || dwell.parity === "shuffle") && routeStops.length > 0;
+  const roundHint = routeLike
+    ? "Poora route ek baar = 1 round"
+    : reverse
+      ? "Upar ↑ phir wapas neeche ↓ = 1 round"
+      : "Neeche ↓ phir wapas upar ↑ = 1 round";
+  // Visual track: one segment per round (capped so ∞ / 99 still fit a phone).
+  const trackCount = loop.rounds === 0 ? 0 : Math.min(loop.rounds, 10);
   const onSheetKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.stopPropagation();
@@ -195,6 +213,83 @@ export default function AutoScrollSheet({
                 />
               </span>
             </button>
+
+            <div data-testid="autoscroll-loop" className="mt-2 rounded-xl border border-border bg-muted/30 p-3">
+              <button
+                type="button"
+                onClick={() => setLoop({ enabled: !loop.enabled })}
+                aria-pressed={loop.enabled}
+                className="flex w-full items-center gap-3 text-left text-sm"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Repeat className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">Loop (revision rounds)</span>
+                  <span className="block text-xs leading-snug text-muted-foreground">{roundHint}</span>
+                </span>
+                <span
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${
+                    loop.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-card shadow transition-all duration-200 ${
+                      loop.enabled ? "left-4" : "left-0.5"
+                    }`}
+                  />
+                </span>
+              </button>
+
+              {loop.enabled && (
+                <div className="mt-3 space-y-3 border-t border-border pt-3">
+                  <div>
+                    <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Rounds
+                    </span>
+                    <ChipGrid cols={6} variant="segment">
+                      {LOOP_ROUND_PRESETS.map((r) => (
+                        <Chip
+                          key={r}
+                          variant="segment"
+                          selected={loop.rounds === r}
+                          ariaPressed={loop.rounds === r}
+                          onClick={() => setLoop({ rounds: r })}
+                        >
+                          {formatRounds(r)}
+                        </Chip>
+                      ))}
+                    </ChipGrid>
+                  </div>
+
+                  {trackCount > 0 ? (
+                    <div className="flex gap-1" aria-hidden="true">
+                      {Array.from({ length: trackCount }, (_, i) => {
+                        const n = i + 1;
+                        const state = loopRound > n ? "done" : loopRound === n ? "now" : "todo";
+                        return (
+                          <span
+                            key={n}
+                            className={`h-1.5 flex-1 rounded-full ${
+                              state === "done" ? "bg-primary" : state === "now" ? "bg-primary/50" : "bg-muted"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  <p className="text-[11px] leading-snug text-muted-foreground" aria-live="polite">
+                    {loopRound > 0
+                      ? `Round ${loopRound}${loop.rounds ? ` of ${loop.rounds}` : ""} chal raha hai.`
+                      : loop.rounds === 0
+                        ? "Tab tak chalega jab tak aap band na karo."
+                        : `${loop.rounds} round ke baad apne aap ruk jaayega.`}{" "}
+                    Har mod par thoda rukta hai. Pause on pages dono taraf kaam karta hai.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="mt-2 rounded-xl border border-border bg-muted/30 p-3">
               <button
@@ -307,28 +402,12 @@ export default function AutoScrollSheet({
                             ? `Order: ${routeStops.join(" → ")} — autoscroll flips direction on its own for each leg.`
                             : "Type pages in the order you want to read them — autoscroll goes down, then up, then down again."}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => setDwell({ loopRoute: !dwell.loopRoute })}
-                          aria-pressed={dwell.loopRoute}
-                          className="mt-2 flex w-full items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-left"
-                        >
-                          <span className="flex items-center gap-2 text-xs font-medium text-foreground">
-                            <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
-                            Loop route
-                          </span>
-                          <span
-                            className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${
-                              dwell.loopRoute ? "bg-primary" : "bg-muted"
-                            }`}
-                          >
-                            <span
-                              className={`absolute top-0.5 h-4 w-4 rounded-full bg-card shadow transition-all duration-200 ${
-                                dwell.loopRoute ? "left-4" : "left-0.5"
-                              }`}
-                            />
-                          </span>
-                        </button>
+                        <p className="mt-2 flex items-center gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                          <Repeat className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {loop.enabled
+                            ? `Route ${formatRounds(loop.rounds)} baar chalega (Loop).`
+                            : "Route dobara chalane ke liye upar Loop on karo."}
+                        </p>
                       </div>
                     )}
 

@@ -5,6 +5,7 @@ import { ChevronsDown, ChevronsUp } from "lucide-react";
 import { tapHaptic, selectionHaptic } from "../../lib/native/haptics";
 import { lazyWithRetry } from "../../lib/lazyWithRetry";
 import { MAX_SPEED } from "./autoScrollLimits";
+import { roundLabel } from "../../lib/reader/loopRounds";
 
 /* The settings sheet (FSRS deck options, sliders, forecast) is a second-tap
    surface — loading it lazily keeps the reader's scroll FAB cheap. */
@@ -61,7 +62,14 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
     dwell,
     setDwell,
     scrollToTop,
+    loop,
+    setLoop,
+    loopRound,
+    loopDir,
   } = useAutoScroll({ targetRef, iframeRef, docKey });
+  const looping = active && !!loop?.enabled && loopRound > 0;
+  // While looping the arrow follows the live leg (down, then back up).
+  const showUp = looping ? loopDir < 0 : reverse;
   const [open, setOpen] = useState(false);
 
   // ── Settings sheet a11y ────────────────────────────────────────────
@@ -354,7 +362,15 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
         ref={fabButtonRef}
         type="button"
 
-        aria-label={active ? "Stop autoscroll" : reverse ? "Start reverse autoscroll" : "Start autoscroll"}
+        aria-label={
+          active
+            ? looping
+              ? `Stop autoscroll (round ${roundLabel(loopRound, loop.rounds)})`
+              : "Stop autoscroll"
+            : reverse
+              ? "Start reverse autoscroll"
+              : "Start autoscroll"
+        }
         aria-pressed={active}
         onPointerDown={onPointerDown}
 
@@ -364,7 +380,7 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
         data-autoscroll-fab="true"
         className={
           anchorEl
-            ? `flex h-10 w-10 select-none items-center justify-center rounded-md transition-colors active:scale-95 ${
+            ? `relative flex h-10 w-10 select-none items-center justify-center rounded-md transition-colors active:scale-95 ${
                 active ? "bg-primary text-primary-foreground" : "text-foreground"
               }`
             : `fixed right-4 sm:right-5 z-[68] flex h-12 w-12 select-none items-center justify-center rounded-full shadow-lg ring-1 ring-black/10 transition-all duration-200 active:scale-95 ${
@@ -377,10 +393,19 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
         }
         style={anchorEl ? undefined : { bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))` }}
       >
-        {reverse ? (
+        {showUp ? (
           <ChevronsUp className={anchorEl ? "h-5 w-5" : "h-6 w-6"} aria-hidden="true" />
         ) : (
           <ChevronsDown className={anchorEl ? "h-5 w-5" : "h-6 w-6"} aria-hidden="true" />
+        )}
+        {looping && (
+          <span
+            data-testid="autoscroll-round-badge"
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-1.5 -top-1.5 min-w-[1.5rem] rounded-full bg-card px-1 text-center text-[10px] font-semibold leading-4 tabular-nums text-foreground shadow ring-1 ring-border"
+          >
+            {roundLabel(loopRound, loop.rounds)}
+          </span>
         )}
       </button>
 
@@ -395,6 +420,9 @@ export default function AutoScrollFab({ targetRef, iframeRef, bottomOffset = 84,
           dwell={dwell}
           setDwell={setDwell}
           scrollToTop={scrollToTop}
+          loop={loop}
+          setLoop={setLoop}
+          loopRound={active ? loopRound : 0}
           customText={customText}
           setCustomText={setCustomText}
           routeText={routeText}

@@ -27,6 +27,16 @@ import {
 import { inferGrade } from "../lib/reader/fsrsScheduler";
 import { recordReview } from "../lib/reader/shuffleDeck";
 import { recordReaderEvent } from "../lib/perf/marks";
+import { tapHaptic } from "../lib/native/haptics";
+import {
+  DEFAULT_LOOP,
+  LOOP_TURN_MS,
+  clampRounds,
+  decideAtEdge,
+  decideAtRouteEnd,
+  parseLoop,
+  type LoopSettings,
+} from "../lib/reader/loopRounds";
 
 
 /** Hard ceiling for autoscroll speed (multiples of ~1px per 16.67ms frame). */
@@ -39,6 +49,8 @@ const REVERSE_KEY = "nb_autoscroll_reverse";
 const DWELL_KEY = "nb_autoscroll_dwell";
 const perDocReverseKey = (k: string) => `nb_autoscroll_reverse:${k}`;
 const perDocDwellKey = (k: string) => `nb_autoscroll_dwell:${k}`;
+const LOOP_KEY = "nb_autoscroll_loop";
+const perDocLoopKey = (k: string) => `nb_autoscroll_loop:${k}`;
 
 // Re-exported so existing importers (AutoScrollFab, tests) keep one entry point
 // while the algorithm itself lives in the shared, unit-tested module.
@@ -82,6 +94,28 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
     parseDwell(safeGet(DWELL_KEY)) ??
     DEFAULT_DWELL
   );
+  const [loop, _setLoop] = useState<LoopSettings>(() => {
+    const saved =
+      (docKey ? parseLoop(safeGet(perDocLoopKey(docKey))) : null) ?? parseLoop(safeGet(LOOP_KEY));
+    if (saved) return saved;
+    // The old "Loop route" switch now lives in Loop — carry it over as ∞ rounds.
+    const oldDwell =
+      (docKey ? parseDwell(safeGet(perDocDwellKey(docKey))) : null) ?? parseDwell(safeGet(DWELL_KEY));
+    return oldDwell?.loopRoute ? { enabled: true, rounds: 0 } : DEFAULT_LOOP;
+  });
+  /** 1-based round of the running loop (0 = not looping). Drives the FAB badge. */
+  const [loopRound, setLoopRound] = useState(0);
+  /** Direction of the running loop leg, mirrored for the FAB arrow. */
+  const [loopDir, setLoopDir] = useState<1 | -1>(reverse ? -1 : 1);
+  const loopRef = useRef(loop);
+  const loopRoundRef = useRef(0);
+  /** Direction the current loop started in (Reverse on → up first). */
+  const startDirRef = useRef<1 | -1>(reverse ? -1 : 1);
+  const reverseRef = useRef(reverse);
+  /** pdf.js path: when the scroller first sat on the edge it is heading to. */
+  const iframeEdgeSinceRef = useRef(0);
+  /** pdf.js path: delayed restart of the route for the next round. */
+  const loopTimerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number>(0);
   /**
@@ -142,7 +176,9 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
    * enforced there (the same-origin canvas loop handles it inline below).
    */
   const pushDwellToIframe = useCallback((cfg: DwellSettings) => {
-    postToBridge(iframeRef?.current, { type: ToBridge.dwell, dwell: cfg });
+    // Repeats are counted by the parent (Loop rounds), so the bridge always
+    // reports the end of each route pass instead of wrapping on its own.
+    postToBridge(iframeRef?.current, { type: ToBridge.dwell, dwell: { ...cfg, loopRoute: false } });
   }, [iframeRef]);
 
   /**
@@ -193,7 +229,11 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
 
   useEffect(() => { activeRef.current = active; }, [active]);
   useEffect(() => { speedRef.current = speed; }, [speed]);
-  useEffect(() => { dirRef.current = reverse ? -1 : 1; }, [reverse]);
+  useEffect(() => {
+    dirRef.current = reverse ? -1 : 1;
+    reverseRef.current = reverse;
+    if (!loopRoundRef.current) setLoopDir(reverse ? -1 : 1);
+  }, [reverse]);
   useEffect(() => {
     dwellRef.current = dwell;
     pushDwellToIframe(dwell);
@@ -298,6 +338,41 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
     });
   }, [docKey]);
 
+  const setLoop = useCallback((patch: Partial<LoopSettings>) => {
+    _setLoop((prev) => {
+      const next: LoopSettings = {
+        enabled: patch.enabled ?? prev.enabled,
+        rounds: clampRounds(patch.rounds ?? prev.rounds),
+      };
+      loopRef.current = next;
+      // Turning Loop on mid-run starts counting from round 1 right here.
+      if (next.enabled && !prev.enabled && activeRef.current) {
+        loopRoundRef.current = 1;
+        startDirRef.current = dirRef.current < 0 ? -1 : 1;
+        setLoopRound(1);
+      }
+      if (!next.enabled) {
+        loopRoundRef.current = 0;
+        setLoopRound(0);
+      }
+      const raw = JSON.stringify(next);
+      safeSet(LOOP_KEY, raw);
+      if (docKey) safeSet(perDocLoopKey(docKey), raw);
+      return next;
+    });
+  }, [docKey]);
+
+  /** Fresh loop: round 1, heading in the user's chosen direction. */
+  const beginLoop = useCallback(() => {
+    const dir: 1 | -1 = reverseRef.current ? -1 : 1;
+    dirRef.current = dir;
+    startDirRef.current = dir;
+    setLoopDir(dir);
+    iframeEdgeSinceRef.current = 0;
+    loopRoundRef.current = loopRef.current.enabled ? 1 : 0;
+    setLoopRound(loopRoundRef.current);
+  }, []);
+
   /** Jump the reader back to the very top (page 1). Keeps autoscroll running. */
   const scrollToTop = useCallback(() => {
     const el = targetRef?.current ?? null;
@@ -346,6 +421,10 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
       window.clearTimeout(supportTimerRef.current);
       supportTimerRef.current = null;
     }
+    if (loopTimerRef.current != null) {
+      window.clearTimeout(loopTimerRef.current);
+      loopTimerRef.current = null;
+    }
   }, []);
 
   /**
@@ -359,7 +438,45 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
     stop();
   }, [stop]);
 
+  /** All rounds done: stop, restore the chosen direction, tell the student. */
+  const finishLoop = useCallback(() => {
+    const done = loopRoundRef.current;
+    loopRoundRef.current = 0;
+    setLoopRound(0);
+    const dir: 1 | -1 = reverseRef.current ? -1 : 1;
+    dirRef.current = dir;
+    setLoopDir(dir);
+    if (docKey) safeSet(perDocActiveKey(docKey), "0");
+    deactivate();
+    void tapHaptic("medium");
+    toast.success(`Revision complete — ${done} round${done === 1 ? "" : "s"} ✓`);
+  }, [deactivate, docKey]);
 
+  /** One round finished, another starts — badge + a light tap. */
+  const nextRound = useCallback((round: number) => {
+    loopRoundRef.current = round;
+    setLoopRound(round);
+    void tapHaptic("light");
+  }, []);
+
+  /** Turn around at an edge (flip) or finish. Returns false once stopped. */
+  const turnAtEdge = useCallback((): boolean => {
+    const lp = loopRef.current;
+    if (!loopRoundRef.current) loopRoundRef.current = 1;
+    const d = decideAtEdge(
+      { round: loopRoundRef.current, dir: dirRef.current < 0 ? -1 : 1 },
+      startDirRef.current,
+      lp.rounds
+    );
+    if (d.action === "done") {
+      finishLoop();
+      return false;
+    }
+    dirRef.current = d.dir;
+    setLoopDir(d.dir);
+    if (d.roundDone) nextRound(d.round);
+    return true;
+  }, [finishLoop, nextRound]);
 
   const start = useCallback(() => {
     stop();
@@ -528,9 +645,19 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
                 }
                 routeStopRef.current = 0;
                 const last = routeIdxRef.current >= cfg.route.length - 1;
-                if (last && !cfg.loopRoute) {
-                  deactivate();
-                  return;
+                if (last) {
+                  // One pass over the route = one round. Without Loop the
+                  // route plays once (the old Loop route switch moved there).
+                  if (!loopRef.current.enabled) {
+                    deactivate();
+                    return;
+                  }
+                  const d = decideAtRouteEnd(loopRoundRef.current || 1, loopRef.current.rounds);
+                  if (d.action === "done") {
+                    finishLoop();
+                    return;
+                  }
+                  nextRound(d.round);
                 }
                 routeIdxRef.current = last ? 0 : routeIdxRef.current + 1;
                 rafRef.current = requestAnimationFrame(step);
@@ -590,7 +717,14 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
             // markdown, infinite lists) grow later — idle instead of killing the
             // run, and only stop once the content has settled for ~1.5s.
             endWaitRef.current += dt * 16.67;
-            if (endWaitRef.current > 1500) {
+            if (loopRef.current.enabled && !routeMode) {
+              // Loop: rest briefly at the turn (also lets lazy pages finish
+              // growing), then head back the other way.
+              if (endWaitRef.current > LOOP_TURN_MS) {
+                endWaitRef.current = 0;
+                if (!turnAtEdge()) return;
+              }
+            } else if (endWaitRef.current > 1500) {
               deactivate();
               return;
             }
@@ -634,9 +768,37 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
           // canvas loop records inline.
           noteShuffleVisit(Number(d.page));
         } else if (d.type === FromBridge.routeDone) {
-          deactivate();
-        } else if (d.type === FromBridge.state && d.atEnd && !routeNow) {
-          deactivate();
+          if (!loopRef.current.enabled) {
+            deactivate();
+            return;
+          }
+          if (loopTimerRef.current != null) return; // next round already queued
+          const r = decideAtRouteEnd(loopRoundRef.current || 1, loopRef.current.rounds);
+          if (r.action === "done") {
+            finishLoop();
+            return;
+          }
+          nextRound(r.round);
+          // Let the last page's pause play out, then restart the route.
+          loopTimerRef.current = window.setTimeout(() => {
+            loopTimerRef.current = null;
+            if (activeRef.current) pushDwellToIframe(dwellRef.current);
+          }, Math.max(1, cfgNow.seconds) * 1000);
+        } else if (d.type === FromBridge.state && !routeNow) {
+          if (loopRef.current.enabled) {
+            const top = Number((d as { scrollTop?: unknown }).scrollTop);
+            const atEdge = dirRef.current < 0 ? Number.isFinite(top) && top <= 1 : !!d.atEnd;
+            if (!atEdge) {
+              iframeEdgeSinceRef.current = 0;
+            } else if (!iframeEdgeSinceRef.current) {
+              iframeEdgeSinceRef.current = Date.now();
+            } else if (Date.now() - iframeEdgeSinceRef.current > LOOP_TURN_MS) {
+              iframeEdgeSinceRef.current = 0;
+              turnAtEdge();
+            }
+          } else if (d.atEnd) {
+            deactivate();
+          }
         }
 
 
@@ -672,7 +834,7 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
 
       }, 1500);
     }
-  }, [stop, deactivate, targetRef, iframeRef, pushDwellToIframe, noteShuffleVisit, closeShuffleVisit]);
+  }, [stop, deactivate, targetRef, iframeRef, pushDwellToIframe, noteShuffleVisit, closeShuffleVisit, finishLoop, nextRound, turnAtEdge]);
 
 
   const toggle = useCallback(() => {
@@ -682,9 +844,17 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
     activeRef.current = next;
     pausedRef.current = false;
     setActive(next);
-    if (next) start(); else stop();
+    if (next) {
+      beginLoop();
+      start();
+    } else {
+      stop();
+      loopRoundRef.current = 0;
+      setLoopRound(0);
+      setLoopDir(reverseRef.current ? -1 : 1);
+    }
     if (docKey) safeSet(perDocActiveKey(docKey), next ? "1" : "0");
-  }, [start, stop, docKey]);
+  }, [start, stop, docKey, beginLoop]);
 
   // Speed is read live from speedRef inside the loop, so no restart is needed.
   // Only restart when the engine is genuinely idle-but-active (e.g. after a
@@ -715,10 +885,11 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
       resumedRef.current = true;
       activeRef.current = true;
       setActive(true);
+      beginLoop();
       start();
     }, 200);
     return () => window.clearInterval(id);
-  }, [docKey, targetRef, iframeRef, start]);
+  }, [docKey, targetRef, iframeRef, start, beginLoop]);
 
 
   // ── Hold-on-content pause ──────────────────────────────────────────────
@@ -813,5 +984,9 @@ export function useAutoScroll({ targetRef, iframeRef, docKey }: AutoScrollOption
     dwell,
     setDwell,
     scrollToTop,
+    loop,
+    setLoop,
+    loopRound,
+    loopDir,
   };
 }

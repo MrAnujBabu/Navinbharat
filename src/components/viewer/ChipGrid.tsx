@@ -14,11 +14,12 @@ import type { ReactNode } from "react";
  * - `min-h-[40px]` keeps every chip inside a comfortable tap target.
  */
 
-type Cols = 3 | 4;
+type Cols = 3 | 4 | 6;
 
 const COLS: Record<Cols, string> = {
   3: "grid-cols-3",
   4: "grid-cols-4",
+  6: "grid-cols-6",
 };
 
 export function ChipGrid({

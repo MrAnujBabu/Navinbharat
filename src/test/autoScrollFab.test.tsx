@@ -13,6 +13,7 @@ const dwellState = {
 };
 
 const setDwellSpy = vi.fn();
+const setLoopSpy = vi.fn();
 
 vi.mock("../hooks/useAutoScroll", () => ({
   useAutoScroll: () => ({
@@ -27,6 +28,10 @@ vi.mock("../hooks/useAutoScroll", () => ({
     dwell: dwellState,
     setDwell: setDwellSpy,
     scrollToTop: vi.fn(),
+    loop: { enabled: true, rounds: 3 },
+    setLoop: setLoopSpy,
+    loopRound: 0,
+    loopDir: 1,
   }),
 }));
 
@@ -110,3 +115,18 @@ describe("A4 Sheet toggle", () => {
   });
 });
 
+
+describe("Loop (revision rounds)", () => {
+  it("switches Loop with one tap and picks the number of rounds", async () => {
+    const { act, fireEvent } = await openSheet();
+    const toggle = screen.getByRole("button", { name: /Loop \(revision rounds\)/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    setLoopSpy.mockClear();
+    act(() => { fireEvent.click(toggle); });
+    expect(setLoopSpy).toHaveBeenCalledWith({ enabled: false });
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "5" })); });
+    expect(setLoopSpy).toHaveBeenCalledWith({ rounds: 5 });
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "∞" })); });
+    expect(setLoopSpy).toHaveBeenCalledWith({ rounds: 0 });
+  });
+});
