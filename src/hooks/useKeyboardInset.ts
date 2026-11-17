@@ -15,15 +15,25 @@ export function useKeyboardInset(): number {
     const vv = window.visualViewport;
     if (!vv) return;
 
+    // Android emits a stream of intermediate viewport values while the
+    // keyboard animates. Commit at most one measurement per painted frame so
+    // the sheet cannot oscillate between heights (the visible "blink").
+    let frame: number | null = null;
     const sync = () => {
-      const covered = window.innerHeight - vv.height - vv.offsetTop;
-      setInset(covered > 80 ? Math.round(covered) : 0);
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        const covered = window.innerHeight - vv.height - vv.offsetTop;
+        const next = covered > 80 ? Math.round(covered) : 0;
+        setInset((current) => (current === next ? current : next));
+      });
     };
 
     sync();
     vv.addEventListener("resize", sync);
     vv.addEventListener("scroll", sync);
     return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
       vv.removeEventListener("resize", sync);
       vv.removeEventListener("scroll", sync);
     };

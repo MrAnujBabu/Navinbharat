@@ -7,3 +7,5 @@
 - [x] Fix My Library fullscreen chrome, white strip, and floating reader controls
 - [x] Remove the My Library PDF first-paint header/status-bar race permanently
 - [x] Keep local PDFs full-page with a black floor and clear stale left-edge clipping at fit-width
+- [x] Stop Notes opening/keyboard resize blinking; saved notes open in Read mode and keyboard opens only for explicit editing
+- [ ] Verify the Notes fix on the user's real Android phone after installing the next APK

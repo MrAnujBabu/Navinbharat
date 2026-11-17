@@ -93,4 +93,8 @@ describe("My Library compact local PDF surface", () => {
     expect(css).toContain(".nb-library-reader-stage .nb-pdf-surface");
     expect(css).toContain("background-color: #000 !important");
   });
+
+  it("does not re-enter immersive mode for keyboard-only Notes resizes", () => {
+    expect(shell.match(/if \(notesOpenRef\.current && !widthChanged\) return;/g)).toHaveLength(2);
+  });
 });

@@ -112,7 +112,10 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
   const [focused, setFocused] = useState(false);
   const [debug, setDebug] = useState(debugEnabled);
   const [metrics, setMetrics] = useState({ vv: 0, top: 0, bottom: 0, h: 0, clipped: false });
-  const [mode, setMode] = useState<"write" | "read">("write");
+  // Existing notes open as readable content. Editing is an explicit action so
+  // merely opening Notes never summons the keyboard or shrinks the PDF.
+  const [mode, setMode] = useState<"write" | "read">("read");
+  const focusOnWriteRef = useRef(false);
   /** Formatting state of the block/selection under the caret. */
   const [caretState, setCaretState] = useState<{ style: BlockStyle; bold: boolean; italic: boolean }>({
     style: "text",
@@ -123,7 +126,6 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
   const saveTimer = useRef<number | null>(null);
   /** Cleared on unmount so a late autosave can't setState on a dead sheet. */
   const statusTimer = useRef<number | null>(null);
-  const focusTimer = useRef<number | null>(null);
   const aliveRef = useRef(true);
   useEffect(() => {
     aliveRef.current = true;
@@ -131,7 +133,6 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
       aliveRef.current = false;
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
       if (statusTimer.current) window.clearTimeout(statusTimer.current);
-      if (focusTimer.current) window.clearTimeout(focusTimer.current);
     };
   }, []);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -147,9 +148,11 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
       .then((md) => {
         if (!alive) return;
         setValue(md);
+        setMode(md.trim() ? "read" : "write");
+        focusOnWriteRef.current = false;
         setLoading(false);
-        // Focus once the surface exists so the keyboard comes up right away.
-        focusTimer.current = window.setTimeout(() => areaRef.current?.focus(), 80);
+        // Deliberately no focus here. Native resize shrinks the WebView when
+        // the keyboard opens; doing that during sheet entry caused a flash.
       })
       .catch(() => {
         if (!alive) return;
@@ -183,18 +186,6 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
     };
   }, []);
 
-  /**
-   * Bring the writing surface back into view. The sheet is lifted above the
-   * keyboard by its host, but the browser can still leave the textarea partly
-   * off-screen right after focus (and again after a rotation, when the
-   * keyboard height changes). `nearest` avoids yanking the whole reader.
-   */
-  const revealArea = useCallback(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    requestAnimationFrame(() => el.scrollIntoView({ block: "nearest", behavior: "smooth" }));
-  }, []);
-
   /** Debug badge data: how much of the textarea is actually on screen. */
   const sampleMetrics = useCallback(() => {
     const el = areaRef.current;
@@ -212,24 +203,36 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
     });
   }, []);
 
-  // Re-reveal while the field is focused and the viewport changes: keyboard
-  // open/close, rotation, or an accessory bar appearing.
+  // Capacitor's native keyboard resize already keeps the focused input
+  // visible. A second smooth scrollIntoView here fought that native scroll
+  // (and visualViewport scroll retriggered it), producing a visible jump.
+  // Keep resize sampling only for the opt-in debug badge.
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
+    if (!debug || !vv) return;
+    let timer: number | null = null;
     const onResize = () => {
-      if (focusedRef.current) window.setTimeout(revealArea, 60);
-      if (debug) window.setTimeout(sampleMetrics, 80);
+      if (!focusedRef.current) return;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(sampleMetrics, 80);
     };
     vv.addEventListener("resize", onResize);
-    vv.addEventListener("scroll", onResize);
     window.addEventListener("orientationchange", onResize);
     return () => {
+      if (timer) window.clearTimeout(timer);
       vv.removeEventListener("resize", onResize);
-      vv.removeEventListener("scroll", onResize);
       window.removeEventListener("orientationchange", onResize);
     };
-  }, [debug, revealArea, sampleMetrics]);
+  }, [debug, sampleMetrics]);
+
+  // Only the explicit Write action focuses the editor. Opening an existing
+  // note, or opening a blank one, leaves the keyboard dismissed.
+  useEffect(() => {
+    if (loading || mode !== "write" || !focusOnWriteRef.current) return;
+    focusOnWriteRef.current = false;
+    const frame = requestAnimationFrame(() => areaRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [loading, mode]);
 
   useEffect(() => {
     if (debug && focused) sampleMetrics();
@@ -682,10 +685,9 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
             onFocus={() => {
               focusedRef.current = true;
               setFocused(true);
-              // Keyboard animation takes ~250ms on Android; re-check after it.
-              revealArea();
-              window.setTimeout(revealArea, 320);
-              window.setTimeout(sampleMetrics, 360);
+              // Native keyboard handling owns scroll positioning. Manual
+              // delayed scrolling here caused a second visible jump.
+              if (debug) sampleMetrics();
             }}
             onBlur={() => {
               focusedRef.current = false;
@@ -741,7 +743,16 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
           variant="ghost"
           size="sm"
           className="h-9 rounded-full px-3 text-sm"
-          onClick={() => setMode(mode === "write" ? "read" : "write")}
+          onClick={() => {
+            if (mode === "write") {
+              focusOnWriteRef.current = false;
+              areaRef.current?.blur();
+              setMode("read");
+            } else {
+              focusOnWriteRef.current = true;
+              setMode("write");
+            }
+          }}
         >
           {mode === "write" ? <BookOpen className="mr-1.5 h-4 w-4" /> : <Pencil className="mr-1.5 h-4 w-4" />}
           {mode === "write" ? "Read" : "Write"}
@@ -758,7 +769,12 @@ export default function NotesPanel({ itemId, title, onOpenLink, keyboardInset = 
               // failed save silently loses the note.
               if (!(await flushSafe())) return;
               setStatus("saved");
-              toast.success("Note save ho gaya");
+              // Confirmation must never intercept the reader toolbar while
+              // the student immediately reopens Notes or taps another control.
+              toast.success("Note save ho gaya", {
+                duration: 1800,
+                style: { pointerEvents: "none" },
+              });
               onClose?.();
             }}
           >

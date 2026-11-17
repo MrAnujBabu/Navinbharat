@@ -66,6 +66,8 @@ export default function DocReaderShell({
   const [downloadPercent, setDownloadPercent] = useState<number>(0);
   const [savingLibrary, setSavingLibrary] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const notesOpenRef = useRef(false);
+  useEffect(() => { notesOpenRef.current = notesOpen; }, [notesOpen]);
   const [readingMode, setReadingMode] = useState(false);
   const [landscape, setLandscape] = useState(false);
   /** True when the OS/browser refused the orientation lock and we rotate in CSS. */
@@ -227,18 +229,28 @@ export default function DocReaderShell({
       }, 120);
     };
     const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
+    let lastWidth = window.innerWidth;
+    const onViewportResize = () => {
+      const width = window.innerWidth;
+      const widthChanged = width !== lastWidth;
+      lastWidth = width;
+      // Keyboard opening is a height-only resize. Re-entering immersive mode
+      // for it flashes the system bars and needlessly re-rasterises the PDF.
+      if (notesOpenRef.current && !widthChanged) return;
+      reapply();
+    };
     window.addEventListener("orientationchange", reapply);
-    window.addEventListener("resize", reapply);
+    window.addEventListener("resize", onViewportResize);
     window.addEventListener("focus", reapply);
-    window.visualViewport?.addEventListener("resize", reapply);
+    window.visualViewport?.addEventListener("resize", onViewportResize);
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       if (t) window.clearTimeout(t);
       window.removeEventListener("orientationchange", reapply);
-      window.removeEventListener("resize", reapply);
+      window.removeEventListener("resize", onViewportResize);
       window.removeEventListener("focus", reapply);
-      window.visualViewport?.removeEventListener("resize", reapply);
+      window.visualViewport?.removeEventListener("resize", onViewportResize);
       document.removeEventListener("visibilitychange", onVisible);
       void showStatusBar();
       void setStatusBarOverlay(false);
@@ -261,8 +273,6 @@ export default function DocReaderShell({
   /** Search must never auto-hide under the user's thumb mid-query. */
   const searchOpenRef = useRef(false);
   useEffect(() => { searchOpenRef.current = searchOpen; }, [searchOpen]);
-  const notesOpenRef = useRef(false);
-  useEffect(() => { notesOpenRef.current = notesOpen; }, [notesOpen]);
   const scheduleHide = () => {
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => {
@@ -343,14 +353,22 @@ export default function DocReaderShell({
       t = window.setTimeout(applyFullPageChrome, 120);
     };
     const onVisible = () => { if (document.visibilityState === "visible") reapply(); };
+    let lastWidth = window.innerWidth;
+    const onViewportResize = () => {
+      const width = window.innerWidth;
+      const widthChanged = width !== lastWidth;
+      lastWidth = width;
+      if (notesOpenRef.current && !widthChanged) return;
+      reapply();
+    };
     window.addEventListener("orientationchange", reapply);
-    window.addEventListener("resize", reapply);
+    window.addEventListener("resize", onViewportResize);
     window.addEventListener("focus", reapply);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       if (t) window.clearTimeout(t);
       window.removeEventListener("orientationchange", reapply);
-      window.removeEventListener("resize", reapply);
+      window.removeEventListener("resize", onViewportResize);
       window.removeEventListener("focus", reapply);
       document.removeEventListener("visibilitychange", onVisible);
       document.body.classList.remove("nb-library-reader-fullpage");
